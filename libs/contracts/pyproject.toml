@@ -1,0 +1,7 @@
+[project]
+name = "contracts"
+version = "0.1.0"
+description = "Shared contracts and DTOs"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pydantic"]

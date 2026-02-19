@@ -1,0 +1,7 @@
+[project]
+name = "common"
+version = "0.1.0"
+description = "Common utilities"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pydantic", "sqlalchemy", "psycopg2-binary"]

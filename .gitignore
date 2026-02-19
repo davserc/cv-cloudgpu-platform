@@ -1,0 +1,69 @@
+﻿# Entorno
+.env
+.env.*
+!.env.example
+.env.runtime
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.dist-info/
+build/
+dist/
+
+# Virtualenv
+.venv/
+venv/
+ENV/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Secrets / credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+infra/credentials/*.json
+infra/credentials/*.pem
+infra/credentials/*.key
+infra/credentials/*.p12
+infra/credentials/*.pfx
+infra/credentials/*.crt
+infra/credentials/*.cer
+infra/credentials/*.der
+
+# Storage local
+/storage/datasets/*
+!/storage/datasets/.gitkeep
+/storage/artifacts/*
+!/storage/artifacts/.gitkeep
+
+# App runtime artifacts
+.vast_offer_blacklist.json
+*.sqlite
+*.db
+
+# Node (si aparece por tooling)
+node_modules/

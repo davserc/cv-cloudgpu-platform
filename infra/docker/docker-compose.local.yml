@@ -1,0 +1,217 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "bash", "-c", "cub kafka-ready -b localhost:9092 1 20"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  cloud-sql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.9.0
+    command:
+      - "--address=0.0.0.0"
+      - "--port=5432"
+      - "--credentials-file=/secrets/cloudsql.json"
+      - "${CLOUD_SQL_INSTANCE}"
+    volumes:
+      - ${CLOUD_SQL_CREDENTIALS}:/secrets/cloudsql.json:ro
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../../.env.develop
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=training-jobs
+      - INFER_UPLOAD_DIR=/data/uploads
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    volumes:
+      - ../../storage:/data
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+
+  training-service:
+    build:
+      context: ../..
+      dockerfile: services/training-service/Dockerfile
+    env_file:
+      - ../../.env.develop
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=training-jobs
+      - KAFKA_OUTPUT_TOPIC=model-trained
+      - WORKER_POLL_SECONDS=5
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    volumes:
+      - ../../storage:/data
+      - ${VAST_SSH_KEY_PATH:-/opt/app/secrets/vast_ed25519}:/root/.ssh/id_ed25519_src:ro
+      - ${VAST_SSH_KNOWN_HOSTS_PATH:-/opt/app/secrets/known_hosts}:/root/.ssh/known_hosts_src:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+
+  training-worker:
+    build:
+      context: ../..
+      dockerfile: services/training-service/Dockerfile
+    command: python -m app.worker
+    env_file:
+      - ../../.env.develop
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=training-jobs
+      - KAFKA_OUTPUT_TOPIC=model-trained
+      - WORKER_POLL_SECONDS=5
+      - WORKER_MAX_CONCURRENCY=2
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    volumes:
+      - ../../storage:/data
+      - ${VAST_SSH_KEY_PATH:-/opt/app/secrets/vast_ed25519}:/root/.ssh/id_ed25519_src:ro
+      - ${VAST_SSH_KNOWN_HOSTS_PATH:-/opt/app/secrets/known_hosts}:/root/.ssh/known_hosts_src:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+    restart: unless-stopped
+
+  evaluation-worker:
+    build:
+      context: ../..
+      dockerfile: services/evaluation-service/Dockerfile
+    command: python -m app.worker
+    env_file:
+      - ../../.env.develop
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=model-trained
+      - KAFKA_OUTPUT_TOPIC=model-evaluated
+      - WORKER_POLL_SECONDS=5
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+    restart: unless-stopped
+
+  evaluation-service:
+    build:
+      context: ../..
+      dockerfile: services/evaluation-service/Dockerfile
+    env_file:
+      - ../../.env.develop
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+
+  model-registry:
+    build:
+      context: ../..
+      dockerfile: services/model-registry/Dockerfile
+    ports:
+      - "8001:8000"
+    env_file:
+      - ../../.env.develop
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    volumes:
+      - ../../storage:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+
+  model-registry-worker:
+    build:
+      context: ../..
+      dockerfile: services/model-registry/Dockerfile
+    command: python -m app.worker
+    env_file:
+      - ../../.env.develop
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPIC=model-trained
+      - KAFKA_GROUP_ID=model-registry
+      - WORKER_POLL_SECONDS=5
+      - MODEL_REGISTRY_AUTO_ACTIVATE=true
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    volumes:
+      - ../../storage:/data
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  model-serving:
+    build:
+      context: ../..
+      dockerfile: services/model-serving/Dockerfile
+    env_file:
+      - ../../.env.develop
+    environment:
+      - MODEL_REGISTRY_URL=http://model-registry:8000/api/v1/models
+      - MODEL_CACHE_DIR=/data/models
+      - MODEL_SERVING_AUTO_RELOAD=true
+      - MODEL_SERVING_AUTO_WARM=true
+      - MODEL_EVENTS_TOPIC=model-trained
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MODEL_SERVING_GROUP_ID=model-serving
+      - MODEL_SERVING_POLL_SECONDS=2
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+    volumes:
+      - ../../storage:/data
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      model-registry:
+        condition: service_healthy
+      cloud-sql-proxy:
+        condition: service_started
+    restart: unless-stopped

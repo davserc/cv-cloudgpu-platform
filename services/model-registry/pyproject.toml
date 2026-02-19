@@ -1,0 +1,10 @@
+[project]
+name = "model-registry"
+version = "0.1.0"
+description = "Model registry service"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["fastapi", "uvicorn[standard]"]
+
+[tool.uvicorn]
+app = "app.main:app"\n

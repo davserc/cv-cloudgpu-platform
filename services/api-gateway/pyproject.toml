@@ -1,0 +1,10 @@
+[project]
+name = "api-gateway"
+version = "0.1.0"
+description = "API Gateway service"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["fastapi", "uvicorn[standard]", "httpx", "kafka-python", "contracts"]
+
+[tool.uvicorn]
+app = "app.main:app"\n
