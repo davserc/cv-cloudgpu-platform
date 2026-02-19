@@ -59,6 +59,9 @@ infra/credentials/*.der
 !/storage/datasets/.gitkeep
 /storage/artifacts/*
 !/storage/artifacts/.gitkeep
+/storage/models/
+/storage/uploads/
+/storage/ultralytics/
 
 # App runtime artifacts
 .vast_offer_blacklist.json
