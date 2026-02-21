@@ -1,4 +1,6 @@
-﻿FROM python:3.11-slim
+FROM python:3.11-slim
+
+ARG CLOUDGPU_GIT_TOKEN
 
 WORKDIR /app
 
@@ -13,8 +15,11 @@ RUN apt-get update \
     && pip install --no-cache-dir -e /app/libs/common \
     && pip install --no-cache-dir -e /app/libs/contracts \
     && pip install --no-cache-dir fastapi "uvicorn[standard]" kafka-python google-cloud-storage \
-    && pip install --no-cache-dir git+https://github.com/davserc/cloudgpu-automation-lib.git@main
-
+    && if [ -n "$CLOUDGPU_GIT_TOKEN" ]; then \
+         pip install --no-cache-dir "git+https://${CLOUDGPU_GIT_TOKEN}@github.com/davserc/cloudgpu-automation-lib.git@main"; \
+       else \
+         pip install --no-cache-dir "git+https://github.com/davserc/cloudgpu-automation-lib.git@main"; \
+       fi
 RUN python - <<'PY'
 from pathlib import Path
 import subprocess
@@ -27,6 +32,7 @@ if "def _push_gcp_json" not in text:
 def _push_gcp_json(host, port, scp_bin="scp"):
     local = Path("/tmp/gcp.json")
     if not local.exists():
+        print("vast_service: /tmp/gcp.json not found; skipping scp", flush=True)
         return
     scp_cmd = [
         scp_bin,
@@ -36,7 +42,13 @@ def _push_gcp_json(host, port, scp_bin="scp"):
         str(local),
         f"root@{host}:/root/gcp.json",
     ]
-    subprocess.run(scp_cmd, check=True)
+    print(f"vast_service: scp /tmp/gcp.json -> root@{host}:{port}:/root/gcp.json", flush=True)
+    try:
+        subprocess.run(scp_cmd, check=True)
+    except Exception as exc:
+        print(f"vast_service: scp failed: {exc}", flush=True)
+        raise
+    print("vast_service: scp OK", flush=True)
 
 """
     text = text.replace("from pathlib import Path\n", "from pathlib import Path\n" + insert)
@@ -58,3 +70,5 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+

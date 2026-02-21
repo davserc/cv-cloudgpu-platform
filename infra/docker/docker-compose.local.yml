@@ -28,14 +28,13 @@ services:
       retries: 6
 
   cloud-sql-proxy:
-    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.9.0
-    command:
-      - "--address=0.0.0.0"
-      - "--port=5432"
-      - "--credentials-file=/secrets/cloudsql.json"
-      - "${CLOUD_SQL_INSTANCE}"
+    build:
+      context: ../..
+      dockerfile: services/cloud-sql-proxy/Dockerfile
+    env_file:
+      - ../../.env.develop
     volumes:
-      - ${CLOUD_SQL_CREDENTIALS}:/secrets/cloudsql.json:ro
+      - ../../secrets:/secrets
 
   api-gateway:
     build:
@@ -49,7 +48,7 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_TOPIC=training-jobs
       - INFER_UPLOAD_DIR=/data/uploads
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     volumes:
       - ../../storage:/data
     depends_on:
@@ -69,11 +68,12 @@ services:
       - KAFKA_TOPIC=training-jobs
       - KAFKA_OUTPUT_TOPIC=model-trained
       - WORKER_POLL_SECONDS=5
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     volumes:
       - ../../storage:/data
       - ${VAST_SSH_KEY_PATH:-/opt/app/secrets/vast_ed25519}:/root/.ssh/id_ed25519_src:ro
       - ${VAST_SSH_KNOWN_HOSTS_PATH:-/opt/app/secrets/known_hosts}:/root/.ssh/known_hosts_src:ro
+      - ../../secrets:/opt/app/secrets
     depends_on:
       kafka:
         condition: service_healthy
@@ -93,11 +93,12 @@ services:
       - KAFKA_OUTPUT_TOPIC=model-trained
       - WORKER_POLL_SECONDS=5
       - WORKER_MAX_CONCURRENCY=2
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     volumes:
       - ../../storage:/data
       - ${VAST_SSH_KEY_PATH:-/opt/app/secrets/vast_ed25519}:/root/.ssh/id_ed25519_src:ro
       - ${VAST_SSH_KNOWN_HOSTS_PATH:-/opt/app/secrets/known_hosts}:/root/.ssh/known_hosts_src:ro
+      - ../../secrets:/opt/app/secrets
     depends_on:
       kafka:
         condition: service_healthy
@@ -117,7 +118,7 @@ services:
       - KAFKA_TOPIC=model-trained
       - KAFKA_OUTPUT_TOPIC=model-evaluated
       - WORKER_POLL_SECONDS=5
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     depends_on:
       kafka:
         condition: service_healthy
@@ -133,7 +134,7 @@ services:
       - ../../.env.develop
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     depends_on:
       kafka:
         condition: service_healthy
@@ -149,7 +150,7 @@ services:
     env_file:
       - ../../.env.develop
     environment:
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     volumes:
       - ../../storage:/data
     healthcheck:
@@ -176,7 +177,7 @@ services:
       - KAFKA_GROUP_ID=model-registry
       - WORKER_POLL_SECONDS=5
       - MODEL_REGISTRY_AUTO_ACTIVATE=true
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     volumes:
       - ../../storage:/data
     depends_on:
@@ -199,7 +200,7 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MODEL_SERVING_GROUP_ID=model-serving
       - MODEL_SERVING_POLL_SECONDS=2
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST}:${DB_PORT}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
     volumes:
       - ../../storage:/data
     ports:
@@ -215,3 +216,4 @@ services:
       cloud-sql-proxy:
         condition: service_started
     restart: unless-stopped
+

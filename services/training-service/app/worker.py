@@ -210,6 +210,11 @@ def run() -> None:
                     gcp_sa_b64 = event.config.get("gcp_sa_b64")
                 if not gcp_sa_b64:
                     gcp_sa_b64 = os.getenv("GCP_SA_B64")
+                logger.info(
+                    "gcp_sa_b64_len env=%s param=%s",
+                    len(os.getenv("GCP_SA_B64") or ""),
+                    len(gcp_sa_b64 or ""),
+                )
 
                 dataset_archive_name = None
                 if event.config and isinstance(event.config, dict):
