@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from common.db.engine import build_engine
 
-
 SessionLocal = sessionmaker(bind=build_engine(), autocommit=False, autoflush=False)
 
 

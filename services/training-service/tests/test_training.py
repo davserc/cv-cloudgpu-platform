@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 from unittest.mock import MagicMock
 
 # Stub contracts before import
@@ -8,8 +8,7 @@ sys.modules.setdefault("contracts.events", MagicMock())
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
-from app.training import model_base_name, build_run_cmd, resolve_artifact_src
+from app.training import build_run_cmd, model_base_name, resolve_artifact_src  # noqa: E402
 
 
 def _make_event(config=None, job_id="job-001"):

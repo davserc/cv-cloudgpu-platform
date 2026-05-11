@@ -134,8 +134,9 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
 
     # Patch services.vast.service.ssh.run_output (used by newer cloudgpu-automation-lib).
     try:
-        import services.vast.service.ssh as _vast_ssh  # type: ignore
         import subprocess
+
+        import services.vast.service.ssh as _vast_ssh  # type: ignore
 
         def _inject_auth_debug(cmd: object) -> object:
             if not isinstance(cmd, str):

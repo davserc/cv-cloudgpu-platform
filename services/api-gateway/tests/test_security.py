@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+
 from app.security import require_api_key
 
 

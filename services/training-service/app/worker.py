@@ -1,23 +1,22 @@
 import json
 import logging
 import os
+import queue
 import signal
 import sys
 import time
-import queue
 from concurrent.futures import ThreadPoolExecutor
-from threading import Semaphore
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from threading import Semaphore
 from uuid import uuid4
 
 from kafka import KafkaConsumer, KafkaProducer
-from kafka.structs import TopicPartition, OffsetAndMetadata
-
-from contracts.events import ModelTrainedEvent, TrainingJobEvent
+from kafka.structs import OffsetAndMetadata, TopicPartition
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from common.db import events, session_scope
+from contracts.events import ModelTrainedEvent, TrainingJobEvent
 
 from .db_ops import ensure_experiment, record_training_end, record_training_start, upsert_model
 from .gcs_utils import upload_artifact_to_gcs
@@ -122,7 +121,7 @@ def run() -> None:
         failed_event = {
             "event_type": "training-failed",
             "event_id": str(uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "job_id": event.job_id,
             "error": error,
             "config": event.config,
@@ -259,7 +258,7 @@ def run() -> None:
                             "name": model_base,
                             "version": "1.0.0",
                             "artifact_uri": artifact_uri,
-                            "trained_at": datetime.now(timezone.utc).isoformat(),
+                            "trained_at": datetime.now(UTC).isoformat(),
                         }
                         artifact_uri, metadata_uri = upload_artifact_to_gcs(
                             artifact_path=artifact_dst,
@@ -291,7 +290,7 @@ def run() -> None:
 
             trained_event = ModelTrainedEvent(
                 event_id=str(uuid4()),
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 job_id=event.job_id,
                 model_id=f"model-{event.job_id}",
                 artifact_uri=artifact_uri,

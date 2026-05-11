@@ -1,6 +1,5 @@
 import json
 import os
-import sys
 from urllib import error, request
 
 

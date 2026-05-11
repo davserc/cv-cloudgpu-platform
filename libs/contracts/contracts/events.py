@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ class EventBase(BaseModel):
 class TrainingJobEvent(EventBase):
     event_type: str = "TRAINING_JOB"
     job_id: str
-    config: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] | None = None
 
 
 class ModelTrainedEvent(EventBase):
@@ -20,11 +20,11 @@ class ModelTrainedEvent(EventBase):
     job_id: str
     model_id: str
     artifact_uri: str
-    metrics: Optional[Dict[str, Any]] = None
+    metrics: dict[str, Any] | None = None
 
 
 class ModelEvaluatedEvent(EventBase):
     event_type: str = "MODEL_EVALUATED"
     model_id: str
     report_uri: str
-    metrics: Dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)

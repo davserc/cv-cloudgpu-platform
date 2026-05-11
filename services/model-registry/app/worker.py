@@ -5,8 +5,8 @@ import time
 
 from kafka import KafkaConsumer
 
-from contracts.events import ModelTrainedEvent
 from app.db import upsert_model, upsert_model_version
+from contracts.events import ModelTrainedEvent
 
 logger = logging.getLogger(__name__)
 

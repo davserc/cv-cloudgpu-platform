@@ -1,7 +1,8 @@
-import sys
 import os
+import sys
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 # Ensure the service root and libs are on the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

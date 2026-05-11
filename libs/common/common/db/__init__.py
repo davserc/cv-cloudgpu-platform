@@ -1,17 +1,17 @@
 from common.db.engine import build_engine
-from common.db.session import SessionLocal, session_scope
 from common.db.schema import (
-    metadata,
-    models,
-    model_versions,
-    experiments,
-    training_runs,
     eval_reports,
+    events,
+    experiments,
     inference_requests,
     inference_results,
+    metadata,
+    model_versions,
+    models,
+    training_runs,
     usage_metrics,
-    events,
 )
+from common.db.session import SessionLocal, session_scope
 
 __all__ = [
     "build_engine",

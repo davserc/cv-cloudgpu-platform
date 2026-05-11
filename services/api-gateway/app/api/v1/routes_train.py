@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter
@@ -8,8 +8,8 @@ from kafka import KafkaProducer
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.schemas import TrainRequest, TrainResponse
-from contracts.events import TrainingJobEvent
 from common.db import events, session_scope
+from contracts.events import TrainingJobEvent
 
 router = APIRouter()
 
@@ -32,7 +32,7 @@ def submit_training_job(payload: TrainRequest) -> TrainResponse:
     job_id = payload.job_id or str(uuid4())
     event = TrainingJobEvent(
         event_id=str(uuid4()),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         job_id=job_id,
         config=payload.config,
     )

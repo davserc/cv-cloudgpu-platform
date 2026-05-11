@@ -4,9 +4,7 @@ Tests the producer/consumer contract and DLQ flow.
 """
 import json
 import sys
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # Stub kafka before any app imports
 kafka_mock = MagicMock()
@@ -39,6 +37,7 @@ class TestKafkaProducerContract:
             mock_scope.return_value.__exit__ = MagicMock(return_value=False)
 
             from fastapi.testclient import TestClient
+
             from app.main import app
             client = TestClient(app)
 
@@ -96,6 +95,7 @@ class TestDLQFlow:
             "job_id": "job-001",
             "config": {},
         }).encode("utf-8")
-        deserializer = lambda v: v.decode("utf-8") if v else ""
+        def deserializer(v):
+            return v.decode("utf-8") if v else ""
         result = json.loads(deserializer(raw))
         assert result["job_id"] == "job-001"

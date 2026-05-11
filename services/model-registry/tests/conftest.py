@@ -1,7 +1,8 @@
-import sys
 import os
+import sys
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -9,8 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.modules.setdefault("common", MagicMock())
 sys.modules.setdefault("common.db", MagicMock())
 
-from fastapi.testclient import TestClient
-
+from fastapi.testclient import TestClient  # noqa: E402
 
 MODEL_ROW = {
     "model_id": "model-001",

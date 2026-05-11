@@ -11,7 +11,13 @@ from fastapi import APIRouter, HTTPException, Response
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.model_store import download_artifact_to_cache, get_model_entry, pick_default_model, _download_gcs, _download_http
+from app.model_store import (
+    _download_gcs,
+    _download_http,
+    download_artifact_to_cache,
+    get_model_entry,
+    pick_default_model,
+)
 from app.schemas import InferRequest, InferResponse, ModelInfoResponse
 from common.db import inference_requests, inference_results, model_versions, session_scope
 

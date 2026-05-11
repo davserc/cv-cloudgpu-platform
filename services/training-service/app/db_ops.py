@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from contracts.events import TrainingJobEvent
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from common.db import events, experiments, models, session_scope, training_runs
+from contracts.events import TrainingJobEvent
 
 
 def ensure_experiment(name: str | None) -> int | None:
@@ -34,7 +34,7 @@ def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, expe
         params_json=params,
         dataset_uri=dataset_uri,
         status="running",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=[training_runs.c.job_id],
@@ -44,7 +44,7 @@ def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, expe
             "params_json": params,
             "dataset_uri": dataset_uri,
             "status": "running",
-            "started_at": datetime.now(timezone.utc),
+            "started_at": datetime.now(UTC),
         },
     )
     with session_scope() as session:
@@ -63,7 +63,7 @@ def record_training_end(job_id: str, metrics: dict | None, status: str, error: s
     update_values = {
         "status": status,
         "metrics_json": metrics or ({"error": error} if error else None),
-        "finished_at": datetime.now(timezone.utc),
+        "finished_at": datetime.now(UTC),
     }
     with session_scope() as session:
         session.execute(update(training_runs).where(training_runs.c.job_id == job_id).values(**update_values))
