@@ -1,4 +1,4 @@
-﻿from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,15 +12,6 @@ class EventBase(BaseModel):
 class TrainingJobEvent(EventBase):
     event_type: str = "TRAINING_JOB"
     job_id: str
-    batch: int
-    device: str
-    epochs: int
-    imgsz: int
-    model: str
-    name: str
-    patience: int
-    project: str
-    save: bool
     config: Optional[Dict[str, Any]] = None
 
 

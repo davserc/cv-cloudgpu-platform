@@ -26,17 +26,7 @@ def upsert_model(model_id: str, name: str | None) -> None:
 
 
 def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, experiment_id: int | None) -> None:
-    params = {
-        "batch": event.batch,
-        "device": event.device,
-        "epochs": event.epochs,
-        "imgsz": event.imgsz,
-        "model": event.model,
-        "name": event.name,
-        "patience": event.patience,
-        "project": event.project,
-        "save": event.save,
-    }
+    params = event.config or {}
     stmt = pg_insert(training_runs).values(
         job_id=event.job_id,
         experiment_id=experiment_id,

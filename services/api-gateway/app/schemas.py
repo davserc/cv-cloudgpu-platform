@@ -1,4 +1,6 @@
-﻿from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -7,28 +9,94 @@ class HealthResponse(BaseModel):
 
 class TrainRequest(BaseModel):
     job_id: str | None = Field(default=None, examples=["job-123"])
-    batch: int = Field(..., examples=[8])
-    device: str = Field(..., examples=["0"])
-    epochs: int = Field(..., examples=[1])
-    imgsz: int = Field(..., examples=[640])
-    model: str = Field(..., examples=["yolo11s.pt"])
-    name: str = Field(..., examples=["exp_1"])
-    patience: int = Field(..., examples=[50])
-    project: str = Field(..., examples=["runs"])
-    save: bool = Field(..., examples=[True])
+    config: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Two-phase training config. Required keys: model, name, project, and one dataset source "
+            "(train_dataset_url or dataset_gs_uri). Other keys are optional overrides."
+        ),
+        examples=[
+            {
+                "train_dataset_url": "gs://my-bucket/datasets/taco.tar.gz",
+                "model": "yolo11s.pt",
+                "name": "exp_2fases",
+                "project": "runs",
+                "device": "0",
+                "save": True,
+                "ph1_epochs": 25,
+                "ph1_patience": 25,
+                "ph1_imgsz": 896,
+                "ph1_batch": -1,
+                "ph1_workers": 4,
+                "ph1_freeze": 10,
+                "ph1_lr0": 0.01,
+                "ph1_lrf": 0.01,
+                "ph1_mosaic": 0.7,
+                "ph1_close_mosaic": 10,
+                "ph1_degrees": 8,
+                "ph1_translate": 0.08,
+                "ph1_aug_scale": 0.35,
+                "ph1_fliplr": 0.5,
+                "ph1_copy_paste": 0.4,
+                "ph1_cls": 1.0,
+                "ph1_erasing": 0.1,
+                "ph1_class_weights_auto": 1,
+                "ph1_class_weights_power": 0.5,
+                "ph1_per_class_metrics": 1,
+                "ph1_save_period": 5,
+                "ph2_epochs": 100,
+                "ph2_patience": 20,
+                "ph2_imgsz": 896,
+                "ph2_batch": -1,
+                "ph2_workers": 4,
+                "ph2_freeze": 0,
+                "ph2_lr0": 0.002,
+                "ph2_lrf": 0.01,
+                "ph2_mosaic": 0.7,
+                "ph2_close_mosaic": 15,
+                "ph2_degrees": 8,
+                "ph2_translate": 0.08,
+                "ph2_aug_scale": 0.35,
+                "ph2_fliplr": 0.5,
+                "ph2_copy_paste": 0.6,
+                "ph2_cls": 1.0,
+                "ph2_erasing": 0.1,
+                "ph2_class_weights_auto": 1,
+                "ph2_class_weights_power": 0.7,
+                "ph2_per_class_metrics": 1,
+                "ph2_save_period": 3,
+                "ph2_dropout": 0.2,
+                "ph2_cos_lr": 1,
+                "ph2_focal_loss": 1,
+                "ph2_focal_gamma": 1.5,
+            }
+        ],
+    )
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "batch": 8,
-                "device": "0",
-                "epochs": 1,
-                "imgsz": 640,
-                "model": "yolo11s.pt",
-                "name": "exp_1",
-                "patience": 50,
-                "project": "runs",
-                "save": True,
+                "job_id": "job-2fases-001",
+                "config": {
+                    "model": "yolo11s.pt",
+                    "name": "exp_2fases",
+                    "project": "runs",
+                    "device": "0",
+                    "ph1_epochs": 25,
+                    "ph2_epochs": 100,
+                    "ph1_imgsz": 896,
+                    "ph2_imgsz": 896,
+                    "ph1_batch": -1,
+                    "ph2_batch": -1,
+                    "ph1_workers": 4,
+                    "ph2_workers": 4,
+                    "ph1_freeze": 10,
+                    "ph2_freeze": 0,
+                    "ph1_lr0": 0.01,
+                    "ph2_lr0": 0.002,
+                    "ph2_cos_lr": 1,
+                    "ph2_focal_loss": 0
+                }
             }
         }
     }

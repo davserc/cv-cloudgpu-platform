@@ -1,16 +1,46 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-wingardium-leviosa}
+      POSTGRES_DB: ${DB_NAME:-computer-vision}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-app} -d ${DB_NAME:-computer-vision}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cvnet
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infra/db/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@postgres:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
+    command: alembic -c infra/db/alembic.ini upgrade head
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - cvnet
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
-    ports:
-      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - cvnet
 
   kafka:
     image: confluentinc/cp-kafka:7.5.3
-    ports:
-      - "9092:9092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -21,6 +51,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     depends_on:
       - zookeeper
+    networks:
+      - cvnet
     healthcheck:
       test: ["CMD", "bash", "-c", "cub kafka-ready -b localhost:9092 1 20"]
       interval: 10s
@@ -35,6 +67,10 @@ services:
       - ../../.env.develop
     volumes:
       - ../../secrets:/secrets
+    networks:
+      - cvnet
+    profiles:
+      - gcp
 
   api-gateway:
     build:
@@ -48,19 +84,21 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_TOPIC=training-jobs
       - INFER_UPLOAD_DIR=/data/uploads
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     volumes:
       - ../../storage:/data
     depends_on:
       kafka:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - cvnet
 
   training-service:
     build:
-      context: ../..
-      dockerfile: services/training-service/Dockerfile
+      context: ../../..
+      dockerfile: cv-cloudgpu-platform/services/training-service/Dockerfile
     env_file:
       - ../../.env.develop
     environment:
@@ -68,7 +106,7 @@ services:
       - KAFKA_TOPIC=training-jobs
       - KAFKA_OUTPUT_TOPIC=model-trained
       - WORKER_POLL_SECONDS=5
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     volumes:
       - ../../storage:/data
       - ${VAST_SSH_KEY_PATH:-/opt/app/secrets/vast_ed25519}:/root/.ssh/id_ed25519_src:ro
@@ -77,13 +115,15 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - cvnet
 
   training-worker:
     build:
-      context: ../..
-      dockerfile: services/training-service/Dockerfile
+      context: ../../..
+      dockerfile: cv-cloudgpu-platform/services/training-service/Dockerfile
     command: python -m app.worker
     env_file:
       - ../../.env.develop
@@ -93,7 +133,7 @@ services:
       - KAFKA_OUTPUT_TOPIC=model-trained
       - WORKER_POLL_SECONDS=5
       - WORKER_MAX_CONCURRENCY=2
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     volumes:
       - ../../storage:/data
       - ${VAST_SSH_KEY_PATH:-/opt/app/secrets/vast_ed25519}:/root/.ssh/id_ed25519_src:ro
@@ -102,9 +142,11 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+    networks:
+      - cvnet
 
   evaluation-worker:
     build:
@@ -118,13 +160,15 @@ services:
       - KAFKA_TOPIC=model-trained
       - KAFKA_OUTPUT_TOPIC=model-evaluated
       - WORKER_POLL_SECONDS=5
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     depends_on:
       kafka:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+    networks:
+      - cvnet
 
   evaluation-service:
     build:
@@ -134,23 +178,23 @@ services:
       - ../../.env.develop
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     depends_on:
       kafka:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - cvnet
 
   model-registry:
     build:
       context: ../..
       dockerfile: services/model-registry/Dockerfile
-    ports:
-      - "8001:8000"
     env_file:
       - ../../.env.develop
     environment:
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     volumes:
       - ../../storage:/data
     healthcheck:
@@ -161,8 +205,10 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - cvnet
 
   model-registry-worker:
     build:
@@ -177,13 +223,17 @@ services:
       - KAFKA_GROUP_ID=model-registry
       - WORKER_POLL_SECONDS=5
       - MODEL_REGISTRY_AUTO_ACTIVATE=true
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     volumes:
       - ../../storage:/data
     depends_on:
       kafka:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+    networks:
+      - cvnet
 
   model-serving:
     build:
@@ -200,11 +250,9 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MODEL_SERVING_GROUP_ID=model-serving
       - MODEL_SERVING_POLL_SECONDS=2
-      - DATABASE_URL=postgresql+psycopg2://sauron:ComunidadDelAnillo92@${DB_HOST:-cloud-sql-proxy}:${DB_PORT:-5432}/computer-vision
+      - DATABASE_URL=postgresql+psycopg2://${DB_USER:-app}:${DB_PASSWORD:-wingardium-leviosa}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-computer-vision}
     volumes:
       - ../../storage:/data
-    ports:
-      - "8002:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -213,7 +261,15 @@ services:
     depends_on:
       model-registry:
         condition: service_healthy
-      cloud-sql-proxy:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+    networks:
+      - cvnet
 
+networks:
+  cvnet:
+    name: cv-cloudgpu-network
+
+volumes:
+  pgdata:

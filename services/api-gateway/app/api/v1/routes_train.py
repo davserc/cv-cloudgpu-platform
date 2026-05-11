@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -34,16 +34,7 @@ def submit_training_job(payload: TrainRequest) -> TrainResponse:
         event_id=str(uuid4()),
         timestamp=datetime.now(timezone.utc).isoformat(),
         job_id=job_id,
-        batch=payload.batch,
-        device=payload.device,
-        epochs=payload.epochs,
-        imgsz=payload.imgsz,
-        model=payload.model,
-        name=payload.name,
-        patience=payload.patience,
-        project=payload.project,
-        save=payload.save,
-        config=None,
+        config=payload.config,
     )
 
     producer = build_producer()

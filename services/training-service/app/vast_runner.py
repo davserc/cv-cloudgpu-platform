@@ -231,10 +231,10 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                     "-p",
                     str(port),
                     "-o",
-                    "StrictHostKeyChecking=no",
+                    "StrictHostKeyChecking=yes",
                     "-o",
-                    "UserKnownHostsFile=/dev/null",
-                    f"root@{host}",
+                    f"UserKnownHostsFile={os.getenv('VAST_SSH_KNOWN_HOSTS_FILE', '/root/.ssh/known_hosts')}",
+                    f"{os.getenv('VAST_SSH_USER', 'vast')}@{host}",
                     _inject_auth_debug(_inject_gcp_json_probe(cmd)),
                 ]
                 logger.info(

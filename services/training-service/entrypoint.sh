@@ -64,8 +64,8 @@ if [ -f "$KEY_DST" ]; then
 Host *
   IdentityFile /root/.ssh/id_ed25519
   IdentitiesOnly yes
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
+  StrictHostKeyChecking accept-new
+  UserKnownHostsFile /root/.ssh/known_hosts
 EOF
   chmod 600 "$SSH_DIR/config" || true
 fi
