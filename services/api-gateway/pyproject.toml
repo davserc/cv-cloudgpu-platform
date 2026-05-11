@@ -14,4 +14,4 @@ app = "app.main:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=app --cov-report=term-missing --cov-fail-under=60"\n
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=60"

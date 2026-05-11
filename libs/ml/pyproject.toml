@@ -4,4 +4,4 @@ version = "0.1.0"
 description = "ML utilities"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []\n
+dependencies = []
