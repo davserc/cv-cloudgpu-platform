@@ -80,5 +80,8 @@ infra/credentials/*.der
 *.sqlite
 *.db
 
+# Local Docker Compose overrides
+infra/docker/docker-compose.local.yml
+
 # Node (si aparece por tooling)
 node_modules/
