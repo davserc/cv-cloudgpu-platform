@@ -53,7 +53,7 @@ jobs:
       - name: Install deps
         run: |
           pip install fastapi uvicorn sqlalchemy kafka-python python-dotenv \
-                      httpx pytest pytest-cov
+                      httpx python-multipart pytest pytest-cov
           pip install -e .
 
       - run: pytest
