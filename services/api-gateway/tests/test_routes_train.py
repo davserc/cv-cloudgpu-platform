@@ -9,14 +9,17 @@ def client(monkeypatch, api_key):
     monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     monkeypatch.setenv("KAFKA_TOPIC", "training-jobs")
 
-    with patch("app.api.v1.routes_train.build_producer") as mock_prod, \
-         patch("app.api.v1.routes_train.session_scope") as mock_scope:
+    with (
+        patch("app.api.v1.routes_train.build_producer") as mock_prod,
+        patch("app.api.v1.routes_train.session_scope") as mock_scope,
+    ):
         mock_producer = MagicMock()
         mock_prod.return_value = mock_producer
         mock_scope.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_scope.return_value.__exit__ = MagicMock(return_value=False)
 
         from app.main import app
+
         yield TestClient(app), api_key, mock_producer
 
 

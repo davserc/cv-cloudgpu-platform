@@ -95,8 +95,8 @@ class TrainRequest(BaseModel):
                     "ph1_lr0": 0.01,
                     "ph2_lr0": 0.002,
                     "ph2_cos_lr": 1,
-                    "ph2_focal_loss": 0
-                }
+                    "ph2_focal_loss": 0,
+                },
             }
         }
     }

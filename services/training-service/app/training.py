@@ -55,8 +55,12 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     overrides["PH2_IMGSZ"] = _cfg(event, "ph2_imgsz", "PH2_IMGSZ", 896)
     overrides["PH1_BATCH"] = _cfg(event, "ph1_batch", "PH1_BATCH", "-1")
     overrides["PH2_BATCH"] = _cfg(event, "ph2_batch", "PH2_BATCH", "-1")
-    overrides["PH1_WORKERS"] = _cfg(event, "ph1_workers", "PH1_WORKERS", _cfg(event, "workers", "WORKERS", "4"))
-    overrides["PH2_WORKERS"] = _cfg(event, "ph2_workers", "PH2_WORKERS", _cfg(event, "workers", "WORKERS", "4"))
+    overrides["PH1_WORKERS"] = _cfg(
+        event, "ph1_workers", "PH1_WORKERS", _cfg(event, "workers", "WORKERS", "4")
+    )
+    overrides["PH2_WORKERS"] = _cfg(
+        event, "ph2_workers", "PH2_WORKERS", _cfg(event, "workers", "WORKERS", "4")
+    )
     overrides["PH1_FREEZE"] = _cfg(event, "ph1_freeze", "PH1_FREEZE", "10")
     overrides["PH2_FREEZE"] = _cfg(event, "ph2_freeze", "PH2_FREEZE", "0")
     overrides["PH1_LR0"] = _cfg(event, "ph1_lr0", "PH1_LR0", "0.01")
@@ -81,12 +85,24 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     overrides["PH2_CLS"] = _cfg(event, "ph2_cls", "PH2_CLS", "1.0")
     overrides["PH1_ERASING"] = _cfg(event, "ph1_erasing", "PH1_ERASING", "0.1")
     overrides["PH2_ERASING"] = _cfg(event, "ph2_erasing", "PH2_ERASING", "0.1")
-    overrides["PH1_CLASS_WEIGHTS_AUTO"] = _cfg(event, "ph1_class_weights_auto", "PH1_CLASS_WEIGHTS_AUTO", "1")
-    overrides["PH2_CLASS_WEIGHTS_AUTO"] = _cfg(event, "ph2_class_weights_auto", "PH2_CLASS_WEIGHTS_AUTO", "1")
-    overrides["PH1_CLASS_WEIGHTS_POWER"] = _cfg(event, "ph1_class_weights_power", "PH1_CLASS_WEIGHTS_POWER", "0.5")
-    overrides["PH2_CLASS_WEIGHTS_POWER"] = _cfg(event, "ph2_class_weights_power", "PH2_CLASS_WEIGHTS_POWER", "0.7")
-    overrides["PH1_PER_CLASS_METRICS"] = _cfg(event, "ph1_per_class_metrics", "PH1_PER_CLASS_METRICS", "1")
-    overrides["PH2_PER_CLASS_METRICS"] = _cfg(event, "ph2_per_class_metrics", "PH2_PER_CLASS_METRICS", "1")
+    overrides["PH1_CLASS_WEIGHTS_AUTO"] = _cfg(
+        event, "ph1_class_weights_auto", "PH1_CLASS_WEIGHTS_AUTO", "1"
+    )
+    overrides["PH2_CLASS_WEIGHTS_AUTO"] = _cfg(
+        event, "ph2_class_weights_auto", "PH2_CLASS_WEIGHTS_AUTO", "1"
+    )
+    overrides["PH1_CLASS_WEIGHTS_POWER"] = _cfg(
+        event, "ph1_class_weights_power", "PH1_CLASS_WEIGHTS_POWER", "0.5"
+    )
+    overrides["PH2_CLASS_WEIGHTS_POWER"] = _cfg(
+        event, "ph2_class_weights_power", "PH2_CLASS_WEIGHTS_POWER", "0.7"
+    )
+    overrides["PH1_PER_CLASS_METRICS"] = _cfg(
+        event, "ph1_per_class_metrics", "PH1_PER_CLASS_METRICS", "1"
+    )
+    overrides["PH2_PER_CLASS_METRICS"] = _cfg(
+        event, "ph2_per_class_metrics", "PH2_PER_CLASS_METRICS", "1"
+    )
     overrides["PH1_SAVE_PERIOD"] = _cfg(event, "ph1_save_period", "PH1_SAVE_PERIOD", "5")
     overrides["PH2_SAVE_PERIOD"] = _cfg(event, "ph2_save_period", "PH2_SAVE_PERIOD", "3")
     overrides["PH2_DROPOUT"] = _cfg(event, "ph2_dropout", "PH2_DROPOUT", "0.20")
@@ -119,15 +135,17 @@ def build_run_cmd(event: TrainingJobEvent) -> str:
     args = []
     if data:
         args.append(f"data={data}")
-    args.extend([
-        f"model={model}",
-        f"name={name}",
-        f"project={project}",
-        f"epochs={epochs}",
-        f"device={device}",
-        f"patience={patience}",
-        f"save={'true' if str(save).lower() in ('1', 'true', 'yes', 'on') else 'false'}",
-    ])
+    args.extend(
+        [
+            f"model={model}",
+            f"name={name}",
+            f"project={project}",
+            f"epochs={epochs}",
+            f"device={device}",
+            f"patience={patience}",
+            f"save={'true' if str(save).lower() in ('1', 'true', 'yes', 'on') else 'false'}",
+        ]
+    )
     return f"{base} {' '.join(args)}".strip()
 
 

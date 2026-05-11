@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import os
 import signal
@@ -58,7 +58,11 @@ def run() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    logger.info("worker.start topic=%s output_topic=%s", os.getenv("KAFKA_TOPIC", "model-trained"), output_topic)
+    logger.info(
+        "worker.start topic=%s output_topic=%s",
+        os.getenv("KAFKA_TOPIC", "model-trained"),
+        output_topic,
+    )
 
     while True:
         records = consumer.poll(timeout_ms=1000)
@@ -105,7 +109,9 @@ def run() -> None:
                         session.execute(
                             update(model_versions)
                             .where(model_versions.c.id == version_id)
-                            .values(metrics_json=evaluated_event.metrics, updated_at=datetime.now(UTC))
+                            .values(
+                                metrics_json=evaluated_event.metrics, updated_at=datetime.now(UTC)
+                            )
                         )
                     session.execute(
                         pg_insert(events).values(
@@ -117,7 +123,11 @@ def run() -> None:
 
                 producer.send(output_topic, evaluated_event.model_dump())
                 producer.flush()
-                logger.info("worker.published event=%s model_id=%s", evaluated_event.event_type, evaluated_event.model_id)
+                logger.info(
+                    "worker.published event=%s model_id=%s",
+                    evaluated_event.event_type,
+                    evaluated_event.model_id,
+                )
 
 
 if __name__ == "__main__":

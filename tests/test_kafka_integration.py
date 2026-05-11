@@ -2,6 +2,7 @@
 Kafka integration tests using mocks (no real broker needed).
 Tests the producer/consumer contract and DLQ flow.
 """
+
 import json
 import sys
 from unittest.mock import MagicMock, patch
@@ -26,8 +27,10 @@ class TestKafkaProducerContract:
         mock_producer = MagicMock()
         mock_producer.send.side_effect = fake_send
 
-        with patch("app.api.v1.routes_train.build_producer", return_value=mock_producer), \
-             patch("app.api.v1.routes_train.session_scope") as mock_scope:
+        with (
+            patch("app.api.v1.routes_train.build_producer", return_value=mock_producer),
+            patch("app.api.v1.routes_train.session_scope") as mock_scope,
+        ):
             sys.path.insert(0, "services/api-gateway")
             sys.modules.setdefault("common", MagicMock())
             sys.modules.setdefault("common.db", MagicMock())
@@ -39,9 +42,11 @@ class TestKafkaProducerContract:
             from fastapi.testclient import TestClient
 
             from app.main import app
+
             client = TestClient(app)
 
         import os
+
         os.environ["API_GATEWAY_API_KEY"] = "test-key"
         resp = client.post(
             "/api/v1/train/",
@@ -90,12 +95,16 @@ class TestDLQFlow:
         assert b"training-failed" in serialized
 
     def test_consumer_deserializes_message(self):
-        raw = json.dumps({
-            "event_type": "training-job",
-            "job_id": "job-001",
-            "config": {},
-        }).encode("utf-8")
+        raw = json.dumps(
+            {
+                "event_type": "training-job",
+                "job_id": "job-001",
+                "config": {},
+            }
+        ).encode("utf-8")
+
         def deserializer(v):
             return v.decode("utf-8") if v else ""
+
         result = json.loads(deserializer(raw))
         assert result["job_id"] == "job-001"

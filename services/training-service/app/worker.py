@@ -117,7 +117,9 @@ def run() -> None:
         except TypeError:
             return OffsetAndMetadata(next_offset, None, -1)
 
-    def publish_failed(event: TrainingJobEvent, error: str, topic: str, partition: int, offset: int) -> None:
+    def publish_failed(
+        event: TrainingJobEvent, error: str, topic: str, partition: int, offset: int
+    ) -> None:
         failed_event = {
             "event_type": "training-failed",
             "event_id": str(uuid4()),
@@ -156,13 +158,19 @@ def run() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    logger.info("worker.start topic=%s output_topic=%s", os.getenv("KAFKA_TOPIC", "training-jobs"), output_topic)
+    logger.info(
+        "worker.start topic=%s output_topic=%s",
+        os.getenv("KAFKA_TOPIC", "training-jobs"),
+        output_topic,
+    )
 
     def process_event(event: TrainingJobEvent, topic: str, partition: int, offset: int) -> None:
         try:
             logger.info("worker.message offset=%s job_id=%s", offset, event.job_id)
 
-            dataset_url = _cfg(event, "train_dataset_url", "TRAIN_DATASET_URL") or _cfg(event, "dataset_url", "TRAIN_DATASET_URL")
+            dataset_url = _cfg(event, "train_dataset_url", "TRAIN_DATASET_URL") or _cfg(
+                event, "dataset_url", "TRAIN_DATASET_URL"
+            )
             dataset_gs_uri = _cfg(event, "dataset_gs_uri", "TRAIN_DATASET_GS_URI")
             dataset_uri = dataset_url or dataset_gs_uri
 
@@ -209,7 +217,9 @@ def run() -> None:
                     len(gcp_sa_b64 or ""),
                 )
 
-                dataset_archive_name = _cfg(event, "dataset_archive_name", "TRAIN_DATASET_ARCHIVE_NAME")
+                dataset_archive_name = _cfg(
+                    event, "dataset_archive_name", "TRAIN_DATASET_ARCHIVE_NAME"
+                )
                 extract_cmd = _cfg(event, "extract_cmd", "TRAIN_EXTRACT_CMD")
 
                 install_gsutil_raw = _cfg(event, "install_gsutil", "TRAIN_INSTALL_GSUTIL", "false")
@@ -275,7 +285,9 @@ def run() -> None:
                             metadata_uri,
                         )
                     except Exception as exc:
-                        logger.error("worker.model_upload_failed job_id=%s error=%s", event.job_id, exc)
+                        logger.error(
+                            "worker.model_upload_failed job_id=%s error=%s", event.job_id, exc
+                        )
 
             except Exception as exc:
                 logger.error("worker.train_failed job_id=%s error=%s", event.job_id, exc)
@@ -308,7 +320,11 @@ def run() -> None:
 
             producer.send(output_topic, trained_event.model_dump())
             producer.flush()
-            logger.info("worker.published event=%s model_id=%s", trained_event.event_type, trained_event.model_id)
+            logger.info(
+                "worker.published event=%s model_id=%s",
+                trained_event.event_type,
+                trained_event.model_id,
+            )
             enqueue_commit(topic, partition, offset)
         finally:
             slots.release()

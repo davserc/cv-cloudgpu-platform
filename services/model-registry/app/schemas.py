@@ -11,8 +11,12 @@ class ModelCreateRequest(BaseModel):
     name: str = Field(..., examples=["yolo-v8"])
     version: str = Field(..., examples=["1.0.0"])
     model_id: str | None = Field(default=None, examples=["model-123"])
-    artifact_uri: str | None = Field(default=None, examples=["gs://bucket/models/yolo11s/model-123/best.pt"])
-    metadata_uri: str | None = Field(default=None, examples=["gs://bucket/models/yolo11s/model-123/metadata.json"])
+    artifact_uri: str | None = Field(
+        default=None, examples=["gs://bucket/models/yolo11s/model-123/best.pt"]
+    )
+    metadata_uri: str | None = Field(
+        default=None, examples=["gs://bucket/models/yolo11s/model-123/metadata.json"]
+    )
     job_id: str | None = Field(default=None, examples=["job-123"])
     metrics: dict | None = None
     status: str | None = Field(default="registered", examples=["registered"])

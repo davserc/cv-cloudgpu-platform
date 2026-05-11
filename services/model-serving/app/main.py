@@ -73,7 +73,9 @@ def _start_model_listener() -> None:
                 model_id = payload.get("model_id")
                 entry = get_model_entry(model_id) if model_id else pick_default_model()
                 if not entry or not entry.get("artifact_uri"):
-                    logger.warning("model-serving.listener.skip_missing_model model_id=%s", model_id)
+                    logger.warning(
+                        "model-serving.listener.skip_missing_model model_id=%s", model_id
+                    )
                     continue
                 logger.info("model-serving.listener.refresh model_id=%s", entry.get("model_id"))
                 try:

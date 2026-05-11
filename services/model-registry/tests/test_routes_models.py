@@ -32,28 +32,38 @@ class TestGetModel:
 
 class TestRegisterModel:
     def test_creates_model(self, client, sample_model):
-        with patch("app.api.v1.routes_models.upsert_model"), \
-             patch("app.api.v1.routes_models.upsert_model_version"), \
-             patch("app.api.v1.routes_models.get_latest_model", return_value=sample_model):
-            resp = client.post("/api/v1/models/", json={
-                "model_id": "model-001",
-                "name": "yolo11s",
-                "version": "1.0.0",
-                "artifact_uri": "gs://bucket/best.pt",
-                "status": "registered",
-            })
+        with (
+            patch("app.api.v1.routes_models.upsert_model"),
+            patch("app.api.v1.routes_models.upsert_model_version"),
+            patch("app.api.v1.routes_models.get_latest_model", return_value=sample_model),
+        ):
+            resp = client.post(
+                "/api/v1/models/",
+                json={
+                    "model_id": "model-001",
+                    "name": "yolo11s",
+                    "version": "1.0.0",
+                    "artifact_uri": "gs://bucket/best.pt",
+                    "status": "registered",
+                },
+            )
         assert resp.status_code == 200
         assert resp.json()["model_id"] == "model-001"
 
     def test_returns_500_when_db_fails(self, client):
-        with patch("app.api.v1.routes_models.upsert_model"), \
-             patch("app.api.v1.routes_models.upsert_model_version"), \
-             patch("app.api.v1.routes_models.get_latest_model", return_value=None):
-            resp = client.post("/api/v1/models/", json={
-                "name": "test",
-                "version": "1.0",
-                "artifact_uri": "gs://b/m.pt",
-            })
+        with (
+            patch("app.api.v1.routes_models.upsert_model"),
+            patch("app.api.v1.routes_models.upsert_model_version"),
+            patch("app.api.v1.routes_models.get_latest_model", return_value=None),
+        ):
+            resp = client.post(
+                "/api/v1/models/",
+                json={
+                    "name": "test",
+                    "version": "1.0",
+                    "artifact_uri": "gs://b/m.pt",
+                },
+            )
         assert resp.status_code == 500
 
 

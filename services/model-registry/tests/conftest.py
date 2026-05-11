@@ -28,6 +28,7 @@ MODEL_ROW = {
 @pytest.fixture
 def client():
     from app.main import app
+
     return TestClient(app)
 
 

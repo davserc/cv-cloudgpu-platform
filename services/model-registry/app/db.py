@@ -128,7 +128,9 @@ def update_latest_model(
             merged = dict(existing or {})
             merged.update(metrics)
             update_values["metrics_json"] = merged
-        session.execute(update(model_versions).where(model_versions.c.id == latest_id).values(**update_values))
+        session.execute(
+            update(model_versions).where(model_versions.c.id == latest_id).values(**update_values)
+        )
 
     return get_latest_model(model_id)
 
