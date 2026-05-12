@@ -12,6 +12,7 @@ def client(monkeypatch, api_key):
     with (
         patch("app.api.v1.routes_train.build_producer") as mock_prod,
         patch("app.api.v1.routes_train.session_scope") as mock_scope,
+        patch("app.api.v1.routes_train.pg_insert"),
     ):
         mock_producer = MagicMock()
         mock_prod.return_value = mock_producer
