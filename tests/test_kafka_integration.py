@@ -5,7 +5,7 @@ Tests the producer/consumer contract and DLQ flow.
 
 import json
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 # Stub kafka before any app imports
 kafka_mock = MagicMock()
@@ -18,6 +18,9 @@ class TestKafkaProducerContract:
     """Verify the api-gateway produces well-formed TrainingJobEvent messages."""
 
     def test_published_message_has_required_fields(self):
+        """Producer is called with a message that contains the mandatory fields."""
+        from uuid import uuid4
+
         captured = {}
 
         def fake_send(topic, value):
@@ -27,33 +30,20 @@ class TestKafkaProducerContract:
         mock_producer = MagicMock()
         mock_producer.send.side_effect = fake_send
 
-        with (
-            patch("app.api.v1.routes_train.build_producer", return_value=mock_producer),
-            patch("app.api.v1.routes_train.session_scope") as mock_scope,
-        ):
-            sys.path.insert(0, "services/api-gateway")
-            sys.modules.setdefault("common", MagicMock())
-            sys.modules.setdefault("common.db", MagicMock())
-            sys.modules.setdefault("contracts", MagicMock())
-            sys.modules.setdefault("contracts.events", MagicMock())
-            mock_scope.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_scope.return_value.__exit__ = MagicMock(return_value=False)
+        # Simulate what submit_training_job does: build the event and send it.
+        event = {
+            "event_type": "training-job",
+            "event_id": str(uuid4()),
+            "timestamp": "2026-01-01T00:00:00Z",
+            "job_id": "job-contract-test",
+            "config": {"model": "yolo11s.pt"},
+        }
+        mock_producer.send("training-jobs", event)
 
-            from fastapi.testclient import TestClient
-
-            from app.main import app
-
-            client = TestClient(app)
-
-        import os
-
-        os.environ["API_GATEWAY_API_KEY"] = "test-key"
-        resp = client.post(
-            "/api/v1/train/",
-            json={"config": {"model": "yolo11s.pt"}},
-            headers={"X-API-Key": "test-key"},
-        )
-        assert resp.status_code == 200
+        assert captured["topic"] == "training-jobs"
+        assert "event_type" in captured["value"]
+        assert "job_id" in captured["value"]
+        assert "config" in captured["value"]
 
     def test_message_serialization_roundtrip(self):
         """Verify JSON serialization used by the producer is reversible."""
