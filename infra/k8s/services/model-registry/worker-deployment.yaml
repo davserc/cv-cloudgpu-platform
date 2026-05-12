@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-registry-worker
+  namespace: cv-platform
+  labels:
+    app: model-registry-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: model-registry-worker
+  template:
+    metadata:
+      labels:
+        app: model-registry-worker
+    spec:
+      containers:
+        - name: model-registry-worker
+          image: ghcr.io/davserc/model-registry:latest
+          imagePullPolicy: Always
+          command: ["python", "-m", "app.worker"]
+          envFrom:
+            - configMapRef:
+                name: cv-platform-config
+            - secretRef:
+                name: cv-platform-secrets
+          env:
+            - name: KAFKA_TOPIC
+              value: "model-trained"
+            - name: KAFKA_GROUP_ID
+              value: "model-registry"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

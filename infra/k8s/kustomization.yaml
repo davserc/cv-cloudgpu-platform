@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Apply all resources to the cv-platform namespace.
+# Before applying, create the secret from the template:
+#   cp infra/k8s/base/secret.yaml.tpl infra/k8s/base/secret.yaml
+#   # fill in real values in secret.yaml
+#   kubectl apply -f infra/k8s/base/secret.yaml
+#
+# Then deploy everything else:
+#   kubectl apply -k infra/k8s/
+
+namespace: cv-platform
+
+resources:
+  # Namespace (must exist before other resources)
+  - base/namespace.yaml
+
+  # Non-secret shared configuration
+  - base/configmap.yaml
+
+  # Infrastructure — Postgres
+  - services/postgres/pvc.yaml
+  - services/postgres/deployment.yaml
+  - services/postgres/service.yaml
+
+  # Infrastructure — Kafka + Zookeeper
+  - services/kafka/zookeeper-deployment.yaml
+  - services/kafka/zookeeper-service.yaml
+  - services/kafka/kafka-deployment.yaml
+  - services/kafka/kafka-service.yaml
+
+  # Application — api-gateway (external entry point, LoadBalancer)
+  - services/api-gateway/deployment.yaml
+  - services/api-gateway/service.yaml
+
+  # Application — model-registry + worker
+  - services/model-registry/deployment.yaml
+  - services/model-registry/worker-deployment.yaml
+  - services/model-registry/service.yaml
+
+  # Application — training-service + worker
+  - services/training-service/deployment.yaml
+  - services/training-service/worker-deployment.yaml
+  - services/training-service/service.yaml
+
+  # Application — evaluation-service + worker
+  - services/evaluation-service/deployment.yaml
+  - services/evaluation-service/worker-deployment.yaml
+  - services/evaluation-service/service.yaml
