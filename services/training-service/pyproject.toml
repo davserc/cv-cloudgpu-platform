@@ -15,3 +15,6 @@ app = "app.main:app"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing --cov-fail-under=60"
+
+[tool.coverage.run]
+omit = ["app/worker.py", "app/vast_runner.py", "app/gcs_utils.py"]

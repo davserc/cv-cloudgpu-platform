@@ -87,7 +87,8 @@ jobs:
           pip install -e cv-cloudgpu-platform/services/training-service
 
       - name: Run tests
-        run: pytest cv-cloudgpu-platform/services/training-service/tests/
+        working-directory: cv-cloudgpu-platform/services/training-service
+        run: pytest
 
   # ── model-registry tests ─────────────────────────────────────────────────────
   test-model-registry:
