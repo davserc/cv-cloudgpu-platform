@@ -1,6 +1,5 @@
 import json
 import os
-import sys
 from urllib import error, request
 
 
@@ -18,13 +17,15 @@ def main() -> int:
         "project": "runs",
         "save": True,
         "config": {
-        "dataset_gs_uri": "gs://unlu-genai-serranodavid-computer_vision_yolo/taco.tar.gz",
-          "install_gsutil": True
-        }
+            "dataset_gs_uri": "gs://unlu-genai-serranodavid-computer_vision_yolo/taco.tar.gz",
+            "install_gsutil": True,
+        },
     }
 
     data = json.dumps(payload).encode("utf-8")
-    req = request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    req = request.Request(
+        url, data=data, headers={"Content-Type": "application/json"}, method="POST"
+    )
 
     try:
         with request.urlopen(req, timeout=10) as resp:

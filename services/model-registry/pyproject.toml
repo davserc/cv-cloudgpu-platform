@@ -6,5 +6,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["fastapi", "uvicorn[standard]"]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "httpx"]
+
 [tool.uvicorn]
-app = "app.main:app"\n
+app = "app.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=60"
+
+[tool.coverage.run]
+omit = ["app/worker.py"]

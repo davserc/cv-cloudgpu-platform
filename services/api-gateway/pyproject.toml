@@ -4,7 +4,14 @@ version = "0.1.0"
 description = "API Gateway service"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["fastapi", "uvicorn[standard]", "httpx", "kafka-python", "contracts"]
+dependencies = ["fastapi", "uvicorn[standard]", "httpx", "kafka-python", "python-multipart", "contracts"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "httpx"]
 
 [tool.uvicorn]
-app = "app.main:app"\n
+app = "app.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=60"

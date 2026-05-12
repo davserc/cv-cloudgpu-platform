@@ -11,7 +11,13 @@ from fastapi import APIRouter, HTTPException, Response
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.model_store import download_artifact_to_cache, get_model_entry, pick_default_model, _download_gcs, _download_http
+from app.model_store import (
+    _download_gcs,
+    _download_http,
+    download_artifact_to_cache,
+    get_model_entry,
+    pick_default_model,
+)
 from app.schemas import InferRequest, InferResponse, ModelInfoResponse
 from common.db import inference_requests, inference_results, model_versions, session_scope
 
@@ -99,12 +105,14 @@ def _results_to_dict(results) -> list[dict[str, Any]]:
                 conf = float(box.conf[0]) if box.conf is not None else None
                 cls = int(box.cls[0]) if box.cls is not None else None
                 name = res.names.get(cls) if cls is not None else None
-                boxes_out.append({
-                    "xyxy": xyxy,
-                    "conf": conf,
-                    "class": cls,
-                    "name": name,
-                })
+                boxes_out.append(
+                    {
+                        "xyxy": xyxy,
+                        "conf": conf,
+                        "class": cls,
+                        "name": name,
+                    }
+                )
         outputs.append({"boxes": boxes_out})
     return outputs
 
@@ -196,10 +204,12 @@ def infer(payload: InferRequest) -> InferResponse:
         for uri in payload.inputs:
             src = _prepare_input(uri)
             results = model.predict(source=src, save=False, verbose=False)
-            preds.append({
-                "input": uri,
-                "results": _results_to_dict(results),
-            })
+            preds.append(
+                {
+                    "input": uri,
+                    "results": _results_to_dict(results),
+                }
+            )
         latency_ms = int((time.time() - started) * 1000)
         with session_scope() as session:
             session.execute(

@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from contracts.events import TrainingJobEvent
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from common.db import events, experiments, models, session_scope, training_runs
+from contracts.events import TrainingJobEvent
 
 
 def ensure_experiment(name: str | None) -> int | None:
@@ -17,26 +17,22 @@ def ensure_experiment(name: str | None) -> int | None:
 
 
 def upsert_model(model_id: str, name: str | None) -> None:
-    stmt = pg_insert(models).values(model_id=model_id, name=name).on_conflict_do_update(
-        index_elements=[models.c.model_id],
-        set_={"name": name, "updated_at": func.now()},
+    stmt = (
+        pg_insert(models)
+        .values(model_id=model_id, name=name)
+        .on_conflict_do_update(
+            index_elements=[models.c.model_id],
+            set_={"name": name, "updated_at": func.now()},
+        )
     )
     with session_scope() as session:
         session.execute(stmt)
 
 
-def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, experiment_id: int | None) -> None:
-    params = {
-        "batch": event.batch,
-        "device": event.device,
-        "epochs": event.epochs,
-        "imgsz": event.imgsz,
-        "model": event.model,
-        "name": event.name,
-        "patience": event.patience,
-        "project": event.project,
-        "save": event.save,
-    }
+def record_training_start(
+    event: TrainingJobEvent, dataset_uri: str | None, experiment_id: int | None
+) -> None:
+    params = event.config or {}
     stmt = pg_insert(training_runs).values(
         job_id=event.job_id,
         experiment_id=experiment_id,
@@ -44,7 +40,7 @@ def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, expe
         params_json=params,
         dataset_uri=dataset_uri,
         status="running",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=[training_runs.c.job_id],
@@ -54,7 +50,7 @@ def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, expe
             "params_json": params,
             "dataset_uri": dataset_uri,
             "status": "running",
-            "started_at": datetime.now(timezone.utc),
+            "started_at": datetime.now(UTC),
         },
     )
     with session_scope() as session:
@@ -68,15 +64,19 @@ def record_training_start(event: TrainingJobEvent, dataset_uri: str | None, expe
         )
 
 
-def record_training_end(job_id: str, metrics: dict | None, status: str, error: str | None = None) -> None:
+def record_training_end(
+    job_id: str, metrics: dict | None, status: str, error: str | None = None
+) -> None:
     payload = {"job_id": job_id, "status": status, "metrics": metrics, "error": error}
     update_values = {
         "status": status,
         "metrics_json": metrics or ({"error": error} if error else None),
-        "finished_at": datetime.now(timezone.utc),
+        "finished_at": datetime.now(UTC),
     }
     with session_scope() as session:
-        session.execute(update(training_runs).where(training_runs.c.job_id == job_id).values(**update_values))
+        session.execute(
+            update(training_runs).where(training_runs.c.job_id == job_id).values(**update_values)
+        )
         session.execute(
             pg_insert(events).values(
                 service="training-service",

@@ -1,28 +1,27 @@
-﻿import json
+import json
 import logging
 import os
+import queue
 import signal
 import sys
 import time
-import queue
 from concurrent.futures import ThreadPoolExecutor
-from threading import Semaphore
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from threading import Semaphore
 from uuid import uuid4
 
 from kafka import KafkaConsumer, KafkaProducer
-from kafka.structs import TopicPartition, OffsetAndMetadata
-
-from contracts.events import ModelTrainedEvent, TrainingJobEvent
+from kafka.structs import OffsetAndMetadata, TopicPartition
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from common.db import events, session_scope
+from contracts.events import ModelTrainedEvent, TrainingJobEvent
 
 from .db_ops import ensure_experiment, record_training_end, record_training_start, upsert_model
 from .gcs_utils import upload_artifact_to_gcs
 from .metrics import parse_ultralytics_metrics
-from .training import build_run_cmd, model_base_name
+from .training import build_run_cmd, model_base_name, resolve_artifact_src
 from .vast_runner import train_on_instance
 
 logger = logging.getLogger(__name__)
@@ -64,6 +63,15 @@ def _env_float(name: str) -> float | None:
     except ValueError:
         logger.warning("worker.invalid_env_float name=%s value=%s", name, value)
         return None
+
+
+def _cfg(event: TrainingJobEvent, key: str, env_key: str, default=None):
+    if event.config and isinstance(event.config, dict):
+        val = event.config.get(key)
+        if val is not None:
+            return val
+    env_val = os.getenv(env_key)
+    return env_val if env_val is not None else default
 
 
 def run() -> None:
@@ -109,11 +117,13 @@ def run() -> None:
         except TypeError:
             return OffsetAndMetadata(next_offset, None, -1)
 
-    def publish_failed(event: TrainingJobEvent, error: str, topic: str, partition: int, offset: int) -> None:
+    def publish_failed(
+        event: TrainingJobEvent, error: str, topic: str, partition: int, offset: int
+    ) -> None:
         failed_event = {
             "event_type": "training-failed",
             "event_id": str(uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "job_id": event.job_id,
             "error": error,
             "config": event.config,
@@ -148,27 +158,28 @@ def run() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    logger.info("worker.start topic=%s output_topic=%s", os.getenv("KAFKA_TOPIC", "training-jobs"), output_topic)
+    logger.info(
+        "worker.start topic=%s output_topic=%s",
+        os.getenv("KAFKA_TOPIC", "training-jobs"),
+        output_topic,
+    )
 
     def process_event(event: TrainingJobEvent, topic: str, partition: int, offset: int) -> None:
         try:
             logger.info("worker.message offset=%s job_id=%s", offset, event.job_id)
 
-            dataset_url = None
-            if event.config and isinstance(event.config, dict):
-                dataset_url = event.config.get("train_dataset_url") or event.config.get("dataset_url")
-            if not dataset_url:
-                dataset_url = os.getenv("TRAIN_DATASET_URL")
-
-            dataset_gs_uri = None
-            if event.config and isinstance(event.config, dict):
-                dataset_gs_uri = event.config.get("dataset_gs_uri")
-            if not dataset_gs_uri:
-                dataset_gs_uri = os.getenv("TRAIN_DATASET_GS_URI")
-
+            dataset_url = _cfg(event, "train_dataset_url", "TRAIN_DATASET_URL") or _cfg(
+                event, "dataset_url", "TRAIN_DATASET_URL"
+            )
+            dataset_gs_uri = _cfg(event, "dataset_gs_uri", "TRAIN_DATASET_GS_URI")
             dataset_uri = dataset_url or dataset_gs_uri
-            experiment_id = ensure_experiment(event.project)
-            upsert_model(f"model-{event.job_id}", event.name or model_base_name(event.model))
+
+            project = _cfg(event, "project", "TRAIN_PROJECT", "runs")
+            model = _cfg(event, "model", "TRAIN_MODEL", "yolo11s.pt")
+            name = _cfg(event, "name", "TRAIN_NAME", event.job_id)
+
+            experiment_id = ensure_experiment(project)
+            upsert_model(f"model-{event.job_id}", name or model_base_name(str(model)))
             record_training_start(event, dataset_uri, experiment_id)
 
             if not dataset_url and not dataset_gs_uri:
@@ -180,13 +191,7 @@ def run() -> None:
             dataset_dst = os.getenv("TRAIN_DATASET_DST", "/work/datasets")
             image = os.getenv("TRAIN_IMAGE", "pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime")
             ports = os.getenv("TRAIN_PORTS")
-            artifact_src = os.getenv("TRAIN_ARTIFACT_SRC")
-            if not artifact_src:
-                runs_dir = os.getenv("TRAIN_RUNS_DIR", "/root/runs").rstrip("/")
-                task_dir = os.getenv("TRAIN_TASK", "detect").strip("/")
-                artifact_src = (
-                    f"{runs_dir}/{task_dir}/{event.project}/{event.name}/weights/best.pt"
-                )
+            artifact_src = resolve_artifact_src(event)
             artifact_dir = Path(os.getenv("TRAIN_ARTIFACT_DST", "./storage/artifacts"))
             artifact_dir.mkdir(parents=True, exist_ok=True)
             artifact_dst = artifact_dir / f"best_{event.job_id}.pt"
@@ -205,35 +210,20 @@ def run() -> None:
                     dataset_label,
                     dataset_dst,
                 )
-                gcp_sa_b64 = None
-                if event.config and isinstance(event.config, dict):
-                    gcp_sa_b64 = event.config.get("gcp_sa_b64")
-                if not gcp_sa_b64:
-                    gcp_sa_b64 = os.getenv("GCP_SA_B64")
+                gcp_sa_b64 = _cfg(event, "gcp_sa_b64", "GCP_SA_B64")
                 logger.info(
                     "gcp_sa_b64_len env=%s param=%s",
                     len(os.getenv("GCP_SA_B64") or ""),
                     len(gcp_sa_b64 or ""),
                 )
 
-                dataset_archive_name = None
-                if event.config and isinstance(event.config, dict):
-                    dataset_archive_name = event.config.get("dataset_archive_name")
-                if not dataset_archive_name:
-                    dataset_archive_name = os.getenv("TRAIN_DATASET_ARCHIVE_NAME")
+                dataset_archive_name = _cfg(
+                    event, "dataset_archive_name", "TRAIN_DATASET_ARCHIVE_NAME"
+                )
+                extract_cmd = _cfg(event, "extract_cmd", "TRAIN_EXTRACT_CMD")
 
-                extract_cmd = None
-                if event.config and isinstance(event.config, dict):
-                    extract_cmd = event.config.get("extract_cmd")
-                if not extract_cmd:
-                    extract_cmd = os.getenv("TRAIN_EXTRACT_CMD")
-
-                install_gsutil = None
-                if event.config and isinstance(event.config, dict):
-                    install_gsutil = event.config.get("install_gsutil")
-                if install_gsutil is None:
-                    install_gsutil = os.getenv("TRAIN_INSTALL_GSUTIL", "false")
-                install_gsutil = str(install_gsutil).lower() in ("1", "true", "yes", "on")
+                install_gsutil_raw = _cfg(event, "install_gsutil", "TRAIN_INSTALL_GSUTIL", "false")
+                install_gsutil = str(install_gsutil_raw).lower() in ("1", "true", "yes", "on")
 
                 train_dataset_url = dataset_url or dataset_gs_uri
                 train_on_instance(
@@ -268,7 +258,7 @@ def run() -> None:
 
                 artifact_uri = str(artifact_dst)
                 metadata_uri = None
-                model_base = model_base_name(event.model)
+                model_base = model_base_name(str(model))
                 base_uri = os.getenv("TRAIN_MODEL_GCS_BASE_URI")
                 if base_uri:
                     try:
@@ -278,7 +268,7 @@ def run() -> None:
                             "name": model_base,
                             "version": "1.0.0",
                             "artifact_uri": artifact_uri,
-                            "trained_at": datetime.now(timezone.utc).isoformat(),
+                            "trained_at": datetime.now(UTC).isoformat(),
                         }
                         artifact_uri, metadata_uri = upload_artifact_to_gcs(
                             artifact_path=artifact_dst,
@@ -295,7 +285,9 @@ def run() -> None:
                             metadata_uri,
                         )
                     except Exception as exc:
-                        logger.error("worker.model_upload_failed job_id=%s error=%s", event.job_id, exc)
+                        logger.error(
+                            "worker.model_upload_failed job_id=%s error=%s", event.job_id, exc
+                        )
 
             except Exception as exc:
                 logger.error("worker.train_failed job_id=%s error=%s", event.job_id, exc)
@@ -310,7 +302,7 @@ def run() -> None:
 
             trained_event = ModelTrainedEvent(
                 event_id=str(uuid4()),
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 job_id=event.job_id,
                 model_id=f"model-{event.job_id}",
                 artifact_uri=artifact_uri,
@@ -328,7 +320,11 @@ def run() -> None:
 
             producer.send(output_topic, trained_event.model_dump())
             producer.flush()
-            logger.info("worker.published event=%s model_id=%s", trained_event.event_type, trained_event.model_id)
+            logger.info(
+                "worker.published event=%s model_id=%s",
+                trained_event.event_type,
+                trained_event.model_id,
+            )
             enqueue_commit(topic, partition, offset)
         finally:
             slots.release()

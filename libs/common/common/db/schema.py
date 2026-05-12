@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, MetaData, Numeric, Table, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Numeric,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
@@ -47,7 +58,12 @@ training_runs = Table(
     metadata,
     Column("id", BigInteger, primary_key=True, autoincrement=True),
     Column("job_id", Text, nullable=False, unique=True),
-    Column("experiment_id", BigInteger, ForeignKey("experiments.id", ondelete="SET NULL"), nullable=True),
+    Column(
+        "experiment_id",
+        BigInteger,
+        ForeignKey("experiments.id", ondelete="SET NULL"),
+        nullable=True,
+    ),
     Column("model_id", Text, ForeignKey("models.model_id", ondelete="SET NULL"), nullable=True),
     Column("params_json", JSONB, nullable=True),
     Column("dataset_uri", Text, nullable=True),
@@ -62,7 +78,12 @@ eval_reports = Table(
     "eval_reports",
     metadata,
     Column("id", BigInteger, primary_key=True, autoincrement=True),
-    Column("model_version_id", BigInteger, ForeignKey("model_versions.id", ondelete="SET NULL"), nullable=True),
+    Column(
+        "model_version_id",
+        BigInteger,
+        ForeignKey("model_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    ),
     Column("report_uri", Text, nullable=True),
     Column("metrics_json", JSONB, nullable=True),
     Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
@@ -74,7 +95,12 @@ inference_requests = Table(
     Column("id", BigInteger, primary_key=True, autoincrement=True),
     Column("request_id", Text, nullable=False, unique=True),
     Column("model_id", Text, ForeignKey("models.model_id", ondelete="SET NULL"), nullable=True),
-    Column("model_version_id", BigInteger, ForeignKey("model_versions.id", ondelete="SET NULL"), nullable=True),
+    Column(
+        "model_version_id",
+        BigInteger,
+        ForeignKey("model_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    ),
     Column("inputs_json", JSONB, nullable=True),
     Column("received_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
     Column("latency_ms", Integer, nullable=True),
@@ -87,7 +113,12 @@ inference_results = Table(
     "inference_results",
     metadata,
     Column("id", BigInteger, primary_key=True, autoincrement=True),
-    Column("request_id", BigInteger, ForeignKey("inference_requests.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "request_id",
+        BigInteger,
+        ForeignKey("inference_requests.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
     Column("output_uri", Text, nullable=True),
     Column("outputs_json", JSONB, nullable=True),
     Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
@@ -105,7 +136,9 @@ usage_metrics = Table(
     Column("p95_ms", Numeric, nullable=True),
     Column("error_rate", Numeric, nullable=True),
     Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
-    UniqueConstraint("service", "window_start", "window_end", name="uq_usage_metrics_service_window"),
+    UniqueConstraint(
+        "service", "window_start", "window_end", name="uq_usage_metrics_service_window"
+    ),
 )
 
 events = Table(

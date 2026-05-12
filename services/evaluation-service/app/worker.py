@@ -1,18 +1,18 @@
-﻿import json
+import json
 import logging
 import os
 import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from kafka import KafkaConsumer, KafkaProducer
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from contracts.events import ModelEvaluatedEvent, ModelTrainedEvent
 from common.db import eval_reports, events, model_versions, session_scope
+from contracts.events import ModelEvaluatedEvent, ModelTrainedEvent
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,11 @@ def run() -> None:
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    logger.info("worker.start topic=%s output_topic=%s", os.getenv("KAFKA_TOPIC", "model-trained"), output_topic)
+    logger.info(
+        "worker.start topic=%s output_topic=%s",
+        os.getenv("KAFKA_TOPIC", "model-trained"),
+        output_topic,
+    )
 
     while True:
         records = consumer.poll(timeout_ms=1000)
@@ -81,7 +85,7 @@ def run() -> None:
 
                 evaluated_event = ModelEvaluatedEvent(
                     event_id=str(uuid4()),
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                     model_id=event.model_id,
                     report_uri=os.getenv("REPORT_URI", "s3://bucket/reports/report.json"),
                     metrics={"mAP": 0.0},
@@ -105,7 +109,9 @@ def run() -> None:
                         session.execute(
                             update(model_versions)
                             .where(model_versions.c.id == version_id)
-                            .values(metrics_json=evaluated_event.metrics, updated_at=datetime.now(timezone.utc))
+                            .values(
+                                metrics_json=evaluated_event.metrics, updated_at=datetime.now(UTC)
+                            )
                         )
                     session.execute(
                         pg_insert(events).values(
@@ -117,7 +123,11 @@ def run() -> None:
 
                 producer.send(output_topic, evaluated_event.model_dump())
                 producer.flush()
-                logger.info("worker.published event=%s model_id=%s", evaluated_event.event_type, evaluated_event.model_id)
+                logger.info(
+                    "worker.published event=%s model_id=%s",
+                    evaluated_event.event_type,
+                    evaluated_event.model_id,
+                )
 
 
 if __name__ == "__main__":

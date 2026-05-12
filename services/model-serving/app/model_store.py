@@ -125,5 +125,7 @@ def pick_default_model() -> dict[str, Any] | None:
         except Exception:
             return 0.0
 
-    candidates.sort(key=lambda m: _parse_dt(m.get("updated_at") or m.get("created_at")), reverse=True)
+    candidates.sort(
+        key=lambda m: _parse_dt(m.get("updated_at") or m.get("created_at")), reverse=True
+    )
     return candidates[0]

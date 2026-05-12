@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 
 from app.api.v1 import routes_health, routes_jobs
 from app.schemas import HealthResponse

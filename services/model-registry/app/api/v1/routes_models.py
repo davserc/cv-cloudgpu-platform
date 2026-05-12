@@ -2,20 +2,20 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 
+from app.db import (
+    delete_model,
+    get_latest_model,
+    list_latest_models,
+    update_latest_model,
+    upsert_model,
+    upsert_model_version,
+)
 from app.schemas import (
     ModelCreateRequest,
     ModelDeleteResponse,
     ModelListResponse,
     ModelResponse,
     ModelUpdateRequest,
-)
-from app.db import (
-    delete_model,
-    get_latest_model,
-    list_latest_models,
-    upsert_model,
-    upsert_model_version,
-    update_latest_model,
 )
 
 router = APIRouter()

@@ -1,10 +1,10 @@
 import json
 import os
-from uuid import uuid4
 from pathlib import Path
-from urllib import request, parse
+from urllib import parse, request
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Response
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 
 from app.schemas import InferRequest, InferResponse
 
@@ -15,13 +15,7 @@ def _serving_url() -> str:
     return os.getenv("MODEL_SERVING_URL", "http://model-serving:8000/api/v1/infer")
 
 
-@router.post(
-    "/",
-    response_model=InferResponse,
-    summary="Run inference on URIs",
-    description="Send image URIs (gs://, http://, or shared /data paths) and receive JSON predictions.",
-)
-def infer(payload: InferRequest) -> InferResponse:
+def _infer(payload: InferRequest) -> InferResponse:
     data = json.dumps(payload.model_dump()).encode("utf-8")
     url = _serving_url()
     if not url.endswith("/"):
@@ -37,15 +31,10 @@ def infer(payload: InferRequest) -> InferResponse:
             body = resp.read().decode("utf-8")
             return InferResponse.model_validate_json(body)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@router.post(
-    "/annotated",
-    summary="Run inference and return annotated image",
-    description="Send image URIs and receive a PNG with drawn boxes.",
-)
-def infer_annotated(payload: InferRequest):
+def _infer_annotated(payload: InferRequest):
     data = json.dumps(payload.model_dump()).encode("utf-8")
     base_url = _serving_url().rstrip("/")
     url = f"{base_url}/annotated"
@@ -60,7 +49,7 @@ def infer_annotated(payload: InferRequest):
             body = resp.read()
             return Response(content=body, media_type="image/png")
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.get(
@@ -79,7 +68,7 @@ def get_active_model(model_id: str | None = None):
             body = resp.read().decode("utf-8")
             return json.loads(body)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.post(
@@ -104,7 +93,7 @@ def infer_upload(
         model_id=model_id,
         inputs=[str(dst_path)],
     )
-    return infer(payload)
+    return _infer(payload)
 
 
 @router.post(
@@ -128,4 +117,4 @@ def infer_upload_annotated(
         model_id=model_id,
         inputs=[str(dst_path)],
     )
-    return infer_annotated(payload)
+    return _infer_annotated(payload)

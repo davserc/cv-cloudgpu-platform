@@ -5,8 +5,8 @@ import time
 
 from kafka import KafkaConsumer
 
-from contracts.events import ModelTrainedEvent
 from app.db import upsert_model, upsert_model_version
+from contracts.events import ModelTrainedEvent
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,11 @@ def run() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
     consumer = build_consumer()
     poll_interval = float(os.getenv("WORKER_POLL_SECONDS", "2"))
-    auto_activate = os.getenv("MODEL_REGISTRY_AUTO_ACTIVATE", "false").lower() in {"1", "true", "yes"}
+    auto_activate = os.getenv("MODEL_REGISTRY_AUTO_ACTIVATE", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     default_status = "active" if auto_activate else "registered"
 
     logger.info("registry.worker.start topic=%s", os.getenv("KAFKA_TOPIC", "model-trained"))
@@ -49,7 +53,9 @@ def run() -> None:
                     data = json.loads(payload) if payload else {}
                     event = ModelTrainedEvent.model_validate(data)
                 except Exception as exc:
-                    logger.warning("registry.worker.invalid_message offset=%s error=%s", msg.offset, exc)
+                    logger.warning(
+                        "registry.worker.invalid_message offset=%s error=%s", msg.offset, exc
+                    )
                     continue
 
                 upsert_model(event.model_id, event.model_id)
@@ -61,7 +67,11 @@ def run() -> None:
                     metrics=event.metrics,
                     status=default_status,
                 )
-                logger.info("registry.worker.upsert model_id=%s artifact_uri=%s", event.model_id, event.artifact_uri)
+                logger.info(
+                    "registry.worker.upsert model_id=%s artifact_uri=%s",
+                    event.model_id,
+                    event.artifact_uri,
+                )
 
 
 if __name__ == "__main__":

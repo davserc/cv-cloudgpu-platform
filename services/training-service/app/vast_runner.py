@@ -16,6 +16,7 @@ def get_vast_helpers():
     _maybe_patch_vast_service(_vast_service)
     return {"train_with_cheapest_instance": train_with_cheapest_instance}
 
+
 def _maybe_patch_vast_service(vast_service_module) -> None:
     if getattr(vast_service_module, "_cvapp_patched", False):
         return
@@ -54,9 +55,9 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                 "df -h /work/datasets && "
                 "AVAIL_BYTES=$(df -P -B1 --output=avail /work/datasets | tail -1 | tr -d ' ') && "
                 f"NEED_BYTES=$(gsutil ls -l {dataset_uri} | awk 'NR==1 {{print $1}}') && "
-                "if [ -z \"$NEED_BYTES\" ] || [ \"$NEED_BYTES\" = \"0\" ]; then "
+                'if [ -z "$NEED_BYTES" ] || [ "$NEED_BYTES" = "0" ]; then '
                 f"echo 'ERROR: cannot determine dataset size for {dataset_uri}' >&2; exit 42; fi && "
-                "if [ \"$AVAIL_BYTES\" -lt \"$NEED_BYTES\" ]; then "
+                'if [ "$AVAIL_BYTES" -lt "$NEED_BYTES" ]; then '
                 "echo 'ERROR: insufficient disk space in /work/datasets. "
                 "Need at least '$NEED_BYTES' bytes free before download.' >&2; exit 42; fi && "
             )
@@ -134,8 +135,9 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
 
     # Patch services.vast.service.ssh.run_output (used by newer cloudgpu-automation-lib).
     try:
-        import services.vast.service.ssh as _vast_ssh  # type: ignore
         import subprocess
+
+        import services.vast.service.ssh as _vast_ssh  # type: ignore
 
         def _inject_auth_debug(cmd: object) -> object:
             if not isinstance(cmd, str):
@@ -231,10 +233,10 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                     "-p",
                     str(port),
                     "-o",
-                    "StrictHostKeyChecking=no",
+                    "StrictHostKeyChecking=yes",
                     "-o",
-                    "UserKnownHostsFile=/dev/null",
-                    f"root@{host}",
+                    f"UserKnownHostsFile={os.getenv('VAST_SSH_KNOWN_HOSTS_FILE', '/root/.ssh/known_hosts')}",
+                    f"{os.getenv('VAST_SSH_USER', 'vast')}@{host}",
                     _inject_auth_debug(_inject_gcp_json_probe(cmd)),
                 ]
                 logger.info(
@@ -283,6 +285,7 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
         vast_service_module.destroy_instance = _destroy_instance_with_debug
 
     vast_service_module._cvapp_patched = True
+
 
 def train_on_instance(
     *,

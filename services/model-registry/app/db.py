@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import delete, select, update, func
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from common.db import model_versions, models, session_scope
@@ -128,7 +128,9 @@ def update_latest_model(
             merged = dict(existing or {})
             merged.update(metrics)
             update_values["metrics_json"] = merged
-        session.execute(update(model_versions).where(model_versions.c.id == latest_id).values(**update_values))
+        session.execute(
+            update(model_versions).where(model_versions.c.id == latest_id).values(**update_values)
+        )
 
     return get_latest_model(model_id)
 

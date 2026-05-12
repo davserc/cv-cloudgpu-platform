@@ -1,6 +1,6 @@
 import json
 import os
-from urllib import request, parse
+from urllib import parse, request
 
 from fastapi import APIRouter, HTTPException
 
@@ -27,7 +27,7 @@ def list_models() -> ModelsListResponse:
             data = json.loads(body)
             return ModelsListResponse.model_validate(data)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.get(
@@ -45,7 +45,7 @@ def get_model(model_id: str) -> ModelSummary:
             data = json.loads(body)
             return ModelSummary.model_validate(data)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.delete(
@@ -63,4 +63,4 @@ def delete_model(model_id: str) -> ModelDeleteResponse:
             data = json.loads(body) if body else {}
             return ModelDeleteResponse.model_validate(data)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
