@@ -129,6 +129,65 @@ jobs:
 
       - run: pytest tests/
 
+  # ── Type-check ──────────────────────────────────────────────────────────────
+  typecheck:
+    name: Type-check – ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, model-registry, evaluation-service]
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps + mypy
+        run: |
+          pip install fastapi uvicorn[standard] sqlalchemy kafka-python python-dotenv \
+                      httpx python-multipart pydantic mypy
+          pip install -e .
+
+      - name: Run mypy
+        run: mypy app/
+
+  typecheck-training-service:
+    name: Type-check – training-service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cv-cloudgpu-platform
+        uses: actions/checkout@v4
+        with:
+          path: cv-cloudgpu-platform
+
+      - name: Checkout cloudgpu-automation-lib
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/cloudgpu-automation-lib
+          path: cloudgpu-automation-lib
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps + mypy
+        run: |
+          pip install -e cloudgpu-automation-lib
+          pip install fastapi uvicorn[standard] sqlalchemy kafka-python python-dotenv \
+                      httpx pydantic mypy
+          pip install -e cv-cloudgpu-platform/services/training-service
+
+      - name: Run mypy
+        working-directory: cv-cloudgpu-platform/services/training-service
+        run: mypy app/
+
   # ── Build Docker images ──────────────────────────────────────────────────────
   build:
     name: Build – ${{ matrix.service }}
