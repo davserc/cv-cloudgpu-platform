@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: training-worker
+  namespace: cv-platform
+  labels:
+    app: training-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: training-worker
+  template:
+    metadata:
+      labels:
+        app: training-worker
+    spec:
+      containers:
+        - name: training-worker
+          image: ghcr.io/davserc/training-service:latest
+          imagePullPolicy: Always
+          command: ["python", "-m", "app.worker"]
+          envFrom:
+            - configMapRef:
+                name: cv-platform-config
+            - secretRef:
+                name: cv-platform-secrets
+          env:
+            - name: KAFKA_TOPIC
+              value: "training-jobs"
+            - name: KAFKA_OUTPUT_TOPIC
+              value: "model-trained"
+            - name: WORKER_MAX_CONCURRENCY
+              value: "2"
+          volumeMounts:
+            - name: ssh-key
+              mountPath: /root/.ssh/id_ed25519_src
+              subPath: id_ed25519
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: cv-platform-secrets
+            items:
+              - key: VAST_SSH_PRIVATE_KEY
+                path: id_ed25519
+                mode: 0400

@@ -83,5 +83,9 @@ infra/credentials/*.der
 # Local Docker Compose overrides
 infra/docker/docker-compose.local.yml
 
+# K8s secrets — cualquier secret.yaml real (no el .tpl) en cualquier subdirectorio
+infra/k8s/**/secret.yaml
+infra/k8s/base/secret.yaml
+
 # Node (si aparece por tooling)
 node_modules/

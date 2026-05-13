@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluation-worker
+  namespace: cv-platform
+  labels:
+    app: evaluation-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evaluation-worker
+  template:
+    metadata:
+      labels:
+        app: evaluation-worker
+    spec:
+      containers:
+        - name: evaluation-worker
+          image: ghcr.io/davserc/evaluation-service:latest
+          imagePullPolicy: Always
+          command: ["python", "-m", "app.worker"]
+          envFrom:
+            - configMapRef:
+                name: cv-platform-config
+            - secretRef:
+                name: cv-platform-secrets
+          env:
+            - name: KAFKA_TOPIC
+              value: "model-trained"
+            - name: KAFKA_OUTPUT_TOPIC
+              value: "model-evaluated"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

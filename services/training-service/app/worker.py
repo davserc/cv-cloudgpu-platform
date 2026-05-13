@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Semaphore
+from typing import Any
 from uuid import uuid4
 
 from kafka import KafkaConsumer, KafkaProducer
@@ -295,7 +296,7 @@ def run() -> None:
                 publish_failed(event, str(exc), topic, partition, offset)
                 return
 
-            metrics = parse_ultralytics_metrics(log_path) or {"mAP": 0.0}
+            metrics: dict[str, Any] = parse_ultralytics_metrics(log_path) or {"mAP": 0.0}
             if metadata_uri:
                 metrics["metadata_uri"] = metadata_uri
             record_training_end(event.job_id, metrics, "succeeded")

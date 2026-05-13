@@ -36,7 +36,7 @@ def _decode_service_account(value: str) -> dict[str, Any]:
 
 def get_gcs_client(gcp_sa_b64: str | None):
     try:
-        from google.cloud import storage  # type: ignore
+        from google.cloud import storage
     except Exception as exc:
         raise RuntimeError("google-cloud-storage not available in environment") from exc
 

@@ -129,6 +129,65 @@ jobs:
 
       - run: pytest tests/
 
+  # ── Type-check ──────────────────────────────────────────────────────────────
+  typecheck:
+    name: Type-check – ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api-gateway, model-registry, evaluation-service]
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps + mypy
+        run: |
+          pip install fastapi uvicorn[standard] sqlalchemy kafka-python python-dotenv \
+                      httpx python-multipart pydantic mypy
+          pip install -e .
+
+      - name: Run mypy
+        run: mypy app/
+
+  typecheck-training-service:
+    name: Type-check – training-service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cv-cloudgpu-platform
+        uses: actions/checkout@v4
+        with:
+          path: cv-cloudgpu-platform
+
+      - name: Checkout cloudgpu-automation-lib
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/cloudgpu-automation-lib
+          path: cloudgpu-automation-lib
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install deps + mypy
+        run: |
+          pip install -e cloudgpu-automation-lib
+          pip install fastapi uvicorn[standard] sqlalchemy kafka-python python-dotenv \
+                      httpx pydantic mypy
+          pip install -e cv-cloudgpu-platform/services/training-service
+
+      - name: Run mypy
+        working-directory: cv-cloudgpu-platform/services/training-service
+        run: mypy app/
+
   # ── Build Docker images ──────────────────────────────────────────────────────
   build:
     name: Build – ${{ matrix.service }}
@@ -148,13 +207,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to ghcr.io
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build image
         uses: docker/build-push-action@v5
         with:
           context: cv-cloudgpu-platform
           file: cv-cloudgpu-platform/services/${{ matrix.service }}/Dockerfile
-          push: false
-          tags: ${{ matrix.service }}:pr-${{ github.sha }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -178,12 +247,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to ghcr.io
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: cv-cloudgpu-platform/services/training-service/Dockerfile
-          push: false
-          tags: training-service:pr-${{ github.sha }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/training-service:latest
+            ghcr.io/${{ github.repository_owner }}/training-service:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

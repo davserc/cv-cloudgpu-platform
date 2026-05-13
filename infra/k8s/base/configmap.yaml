@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cv-platform-config
+  namespace: cv-platform
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  KAFKA_TOPIC: "training-jobs"
+  KAFKA_OUTPUT_TOPIC: "model-trained"
+  KAFKA_EVALUATED_TOPIC: "model-evaluated"
+  WORKER_POLL_SECONDS: "5"
+  WORKER_MAX_CONCURRENCY: "2"
+  MODEL_REGISTRY_URL: "http://model-registry:8000/api/v1/models"
+  MODEL_CACHE_DIR: "/data/models"
+  MODEL_REGISTRY_AUTO_ACTIVATE: "true"
+  MODEL_SERVING_AUTO_RELOAD: "true"
+  MODEL_SERVING_AUTO_WARM: "true"
+  INFER_UPLOAD_DIR: "/data/uploads"
