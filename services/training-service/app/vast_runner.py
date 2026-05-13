@@ -112,7 +112,7 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
 
     # Patch dataset onstart to always create /root/gcp.json even if apt-get fails.
     try:
-        import services.vast.service.dataset as _vast_dataset  # type: ignore
+        import services.vast.service.dataset as _vast_dataset
 
         if hasattr(_vast_dataset, "_build_onstart_cmd"):
             _orig_build_onstart_cmd = _vast_dataset._build_onstart_cmd
@@ -137,7 +137,7 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
     try:
         import subprocess
 
-        import services.vast.service.ssh as _vast_ssh  # type: ignore
+        import services.vast.service.ssh as _vast_ssh
 
         def _inject_auth_debug(cmd: object) -> object:
             if not isinstance(cmd, str):
