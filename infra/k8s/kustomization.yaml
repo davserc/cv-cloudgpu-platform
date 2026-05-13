@@ -19,11 +19,6 @@ resources:
   # Non-secret shared configuration
   - base/configmap.yaml
 
-  # Infrastructure — Postgres
-  - services/postgres/pvc.yaml
-  - services/postgres/deployment.yaml
-  - services/postgres/service.yaml
-
   # Infrastructure — Kafka + Zookeeper
   - services/kafka/zookeeper-deployment.yaml
   - services/kafka/zookeeper-service.yaml
