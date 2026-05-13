@@ -15,6 +15,7 @@ spec:
       labels:
         app: kafka
     spec:
+      enableServiceLinks: false  # prevents K8s injecting KAFKA_PORT which Confluent misinterprets
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.5.3
