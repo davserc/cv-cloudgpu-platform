@@ -4,6 +4,8 @@ metadata:
   name: cv-platform-config
   namespace: cv-platform
 data:
+  # Cloud SQL: obtener db_public_ip de: tofu output db_public_ip
+  CLOUD_SQL_INSTANCE: "CHANGE_ME:us-central1:cv-postgres"   # project:region:instance
   KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
   KAFKA_TOPIC: "training-jobs"
   KAFKA_OUTPUT_TOPIC: "model-trained"

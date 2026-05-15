@@ -19,11 +19,6 @@ resources:
   # Non-secret shared configuration
   - base/configmap.yaml
 
-  # Infrastructure — Postgres
-  - services/postgres/pvc.yaml
-  - services/postgres/deployment.yaml
-  - services/postgres/service.yaml
-
   # Infrastructure — Kafka + Zookeeper
   - services/kafka/zookeeper-deployment.yaml
   - services/kafka/zookeeper-service.yaml
@@ -48,3 +43,10 @@ resources:
   - services/evaluation-service/deployment.yaml
   - services/evaluation-service/worker-deployment.yaml
   - services/evaluation-service/service.yaml
+
+  # Observability — Prometheus + Grafana
+  - observability/prometheus-rbac.yaml
+  - observability/prometheus-configmap.yaml
+  - observability/prometheus-deployment.yaml
+  - observability/grafana-configmap.yaml
+  - observability/grafana-deployment.yaml
