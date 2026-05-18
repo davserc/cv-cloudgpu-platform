@@ -9,7 +9,10 @@ CLUSTER="cv-platform"
 NAMESPACE="cv-platform"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../" && pwd)"
 PLATFORM_ROOT="$REPO_ROOT/cv-cloudgpu-platform"
-DB_URL="postgresql+psycopg2://sauron:wingardium-leviosa@136.113.178.46:5432/computer-vision"
+
+# Exportá DATABASE_URL en tu shell antes de correr el script, p.ej.:
+#   export DATABASE_URL="postgresql+psycopg2://user:pass@host:5432/dbname"
+DB_URL="${DATABASE_URL:-}"
 
 TARGET="${1:-all}"
 
@@ -46,6 +49,7 @@ wait_rollout() {
 
 # ── Migraciones ───────────────────────────────────────────────────────────────
 run_migrations() {
+  [[ -z "$DB_URL" ]] && die "DATABASE_URL no definida. Exportala antes de ejecutar el script."
   log "Buildeando imagen de migraciones..."
   docker build -f "$PLATFORM_ROOT/infra/db/Dockerfile" -t cv-migrate "$PLATFORM_ROOT"
   log "Aplicando migraciones Alembic..."

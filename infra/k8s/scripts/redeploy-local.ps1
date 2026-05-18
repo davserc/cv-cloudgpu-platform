@@ -13,7 +13,9 @@ $NAMESPACE  = "cv-platform"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PLATFORM_ROOT = (Resolve-Path "$SCRIPT_DIR\..\..\..").Path
 $REPO_ROOT     = (Resolve-Path "$PLATFORM_ROOT\..").Path
-$DB_URL = "postgresql+psycopg2://sauron:wingardium-leviosa@136.113.178.46:5432/computer-vision"
+# Seteá DATABASE_URL en tu shell antes de correr el script, p.ej.:
+#   $env:DATABASE_URL = "postgresql+psycopg2://user:pass@host:5432/dbname"
+$DB_URL = $env:DATABASE_URL
 
 function Log  { param($msg) Write-Host "-> $msg" -ForegroundColor Cyan }
 function Ok   { param($msg) Write-Host "[OK] $msg" -ForegroundColor Green }
@@ -67,6 +69,7 @@ function Restart-And-Wait {
 
 # ── Migraciones ───────────────────────────────────────────────────────────────
 function Run-Migrations {
+    if (-not $DB_URL) { Die "DATABASE_URL no definida. Seteala con: `$env:DATABASE_URL = '...' antes de ejecutar el script." }
     Log "Buildeando imagen de migraciones..."
     docker build -f "$PLATFORM_ROOT\infra\db\Dockerfile" -t cv-migrate $PLATFORM_ROOT
     if ($LASTEXITCODE -ne 0) { Die "docker build para migraciones falló" }
