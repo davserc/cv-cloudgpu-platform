@@ -45,6 +45,20 @@ def get_gcs_client(gcp_sa_b64: str | None):
 
     info = _decode_service_account(gcp_sa_b64)
 
+    # authorized_user credentials (gcloud auth login) requieren un flujo diferente
+    if info.get("type") == "authorized_user":
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        creds = Credentials(
+            token=None,
+            refresh_token=info["refresh_token"],
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=info["client_id"],
+            client_secret=info["client_secret"],
+        )
+        creds.refresh(Request())
+        return storage.Client(credentials=creds)
+
     return storage.Client.from_service_account_info(info)
 
 
@@ -56,6 +70,7 @@ def upload_artifact_to_gcs(
     job_id: str,
     metadata: dict[str, Any],
     gcp_sa_b64: str | None,
+    log_path: str | None = None,
 ) -> tuple[str, str]:
     client = get_gcs_client(gcp_sa_b64)
     bucket_name, base_prefix = parse_gs_uri(base_uri)
@@ -75,4 +90,12 @@ def upload_artifact_to_gcs(
         json.dumps(metadata_out),
         content_type="application/json",
     )
+
+    if log_path and Path(log_path).exists():
+        log_blob_path = f"{prefix}/train.log"
+        bucket.blob(log_blob_path).upload_from_filename(
+            log_path, content_type="text/plain"
+        )
+        metadata_out["log_uri"] = f"gs://{bucket_name}/{log_blob_path}"
+
     return artifact_uri, metadata_uri

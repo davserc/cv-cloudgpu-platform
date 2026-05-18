@@ -278,6 +278,7 @@ def run() -> None:
                             job_id=event.job_id,
                             metadata=metadata,
                             gcp_sa_b64=gcp_sa_b64,
+                            log_path=log_path,
                         )
                         logger.info(
                             "worker.model_uploaded job_id=%s artifact_uri=%s metadata_uri=%s",

@@ -19,7 +19,7 @@ spec:
         - name: training-worker
           image: ghcr.io/davserc/training-service:latest
           imagePullPolicy: Always
-          command: ["python", "-m", "app.worker"]
+          args: ["python", "-m", "app.worker"]
           envFrom:
             - configMapRef:
                 name: cv-platform-config

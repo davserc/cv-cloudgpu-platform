@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from contracts.events import TrainingJobEvent
+
+logger = logging.getLogger(__name__)
 
 
 def model_base_name(model: str) -> str:
@@ -110,6 +113,23 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     overrides["PH2_FOCAL_LOSS"] = _cfg(event, "ph2_focal_loss", "PH2_FOCAL_LOSS", "1")
     overrides["PH2_FOCAL_GAMMA"] = _cfg(event, "ph2_focal_gamma", "PH2_FOCAL_GAMMA", "1.5")
 
+    # Safety: YOLO crashes when close_mosaic >= epochs (it tries to disable mosaic
+    # in the last N epochs but there aren't enough epochs to do so).
+    # Force close_mosaic=0 in that case to disable the feature entirely.
+    for phase, epochs_key, cm_key in [
+        ("PH1", "PH1_EPOCHS", "PH1_CLOSE_MOSAIC"),
+        ("PH2", "PH2_EPOCHS", "PH2_CLOSE_MOSAIC"),
+    ]:
+        try:
+            if int(overrides[epochs_key]) <= int(overrides[cm_key]):
+                logger.warning(
+                    "%s_EPOCHS=%s <= %s=%s — forcing %s=0 to avoid YOLO crash",
+                    phase, overrides[epochs_key], cm_key, overrides[cm_key], cm_key,
+                )
+                overrides[cm_key] = "0"
+        except (ValueError, KeyError):
+            pass
+
     env_prefix = " ".join(f"{k}={v}" for k, v in overrides.items())
     return f"cd /work && PYTHONPATH=/work {env_prefix} bash /work/run_service.sh"
 
@@ -149,19 +169,28 @@ def build_run_cmd(event: TrainingJobEvent) -> str:
     return f"{base} {' '.join(args)}".strip()
 
 
-def resolve_artifact_src(event: TrainingJobEvent) -> str:
+def resolve_artifact_src(event: TrainingJobEvent) -> list[str]:
+    """Return ordered candidate paths for the trained model artifact.
+
+    The first path that exists on the remote instance will be downloaded.
+    ``best.pt`` is preferred; ``last.pt`` is the fallback for runs that were
+    too short to produce a best-checkpoint (e.g. test runs with very few
+    epochs).
+    """
     explicit = os.getenv("TRAIN_ARTIFACT_SRC")
     if explicit:
-        return explicit
+        return [explicit]
 
     if os.getenv("TRAIN_MODE", "two_phase") == "two_phase":
         runs_dir = str(_cfg(event, "runs_dir", "RUNS_DIR", "/work/runs")).rstrip("/")
         base_name = _cfg(event, "name", "TRAIN_NAME", event.job_id)
         ph2_name = _cfg(event, "ph2_name", "PH2_NAME", f"{base_name}_ph2")
-        return f"{runs_dir}/segment/{ph2_name}/weights/best.pt"
+        weights_dir = f"{runs_dir}/segment/{ph2_name}/weights"
+        return [f"{weights_dir}/best.pt", f"{weights_dir}/last.pt"]
 
     runs_dir = os.getenv("TRAIN_RUNS_DIR", "/root/runs").rstrip("/")
     task_dir = os.getenv("TRAIN_TASK", "detect").strip("/")
     project = _cfg(event, "project", "TRAIN_PROJECT", "runs")
     name = _cfg(event, "name", "TRAIN_NAME", event.job_id)
-    return f"{runs_dir}/{task_dir}/{project}/{name}/weights/best.pt"
+    weights_dir = f"{runs_dir}/{task_dir}/{project}/{name}/weights"
+    return [f"{weights_dir}/best.pt", f"{weights_dir}/last.pt"]
