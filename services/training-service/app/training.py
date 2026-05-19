@@ -110,7 +110,9 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     overrides["PH2_SAVE_PERIOD"] = _cfg(event, "ph2_save_period", "PH2_SAVE_PERIOD", "3")
     overrides["PH2_DROPOUT"] = _cfg(event, "ph2_dropout", "PH2_DROPOUT", "0.20")
     overrides["PH2_COS_LR"] = _cfg(event, "ph2_cos_lr", "PH2_COS_LR", "1")
-    overrides["PH2_FOCAL_LOSS"] = _cfg(event, "ph2_focal_loss", "PH2_FOCAL_LOSS", "1")
+    # fl_gamma removed from ultralytics >= 8.3.x — default to disabled to avoid
+    # passing a flag that train_yolo.py now silently ignores anyway.
+    overrides["PH2_FOCAL_LOSS"] = _cfg(event, "ph2_focal_loss", "PH2_FOCAL_LOSS", "0")
     overrides["PH2_FOCAL_GAMMA"] = _cfg(event, "ph2_focal_gamma", "PH2_FOCAL_GAMMA", "1.5")
 
     # Safety: YOLO crashes when close_mosaic >= epochs (it tries to disable mosaic
