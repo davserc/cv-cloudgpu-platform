@@ -19,8 +19,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from common.db import events, session_scope
 from contracts.events import ModelTrainedEvent, TrainingJobEvent
 
-from .db_ops import ensure_experiment, record_training_end, record_training_start, upsert_model
+from .db_ops import ensure_experiment, record_training_end, record_training_start, reconcile_stale_jobs, upsert_model
 from .gcs_utils import upload_artifact_to_gcs
+from .log_sanitize import sanitize_log_text
 from .metrics import parse_ultralytics_metrics
 from .training import build_run_cmd, model_base_name, resolve_artifact_src
 from .vast_runner import train_on_instance
@@ -121,12 +122,13 @@ def run() -> None:
     def publish_failed(
         event: TrainingJobEvent, error: str, topic: str, partition: int, offset: int
     ) -> None:
+        safe_error = sanitize_log_text(error)
         failed_event = {
             "event_type": "training-failed",
             "event_id": str(uuid4()),
             "timestamp": datetime.now(UTC).isoformat(),
             "job_id": event.job_id,
-            "error": error,
+            "error": safe_error,
             "config": event.config,
         }
         try:
@@ -158,6 +160,11 @@ def run() -> None:
 
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
+
+    stale_timeout = int(os.getenv("TRAIN_STALE_TIMEOUT_HOURS", "12"))
+    stale_count = reconcile_stale_jobs(stale_timeout)
+    if stale_count:
+        logger.warning("worker.reconcile stale_jobs=%d timeout_hours=%d", stale_count, stale_timeout)
 
     logger.info(
         "worker.start topic=%s output_topic=%s",
@@ -292,9 +299,10 @@ def run() -> None:
                         )
 
             except Exception as exc:
-                logger.error("worker.train_failed job_id=%s error=%s", event.job_id, exc)
-                record_training_end(event.job_id, None, "failed", str(exc))
-                publish_failed(event, str(exc), topic, partition, offset)
+                safe_error = sanitize_log_text(exc)
+                logger.error("worker.train_failed job_id=%s error=%s", event.job_id, safe_error)
+                record_training_end(event.job_id, None, "failed", safe_error)
+                publish_failed(event, safe_error, topic, partition, offset)
                 return
 
             metrics: dict[str, Any] = parse_ultralytics_metrics(log_path) or {"mAP": 0.0}
