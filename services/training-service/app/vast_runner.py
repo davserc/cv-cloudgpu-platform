@@ -118,12 +118,19 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
             _orig_build_onstart_cmd = _vast_dataset._build_onstart_cmd
 
             def _build_onstart_cmd_safe(gcp_sa_b64, install_gsutil):
-                if not gcp_sa_b64:
-                    return None, None
-                env_vars = {"GCP_SA_B64": gcp_sa_b64}
+                # Inyectar la clave SSH del worker en authorized_keys para garantizar acceso
+                # independientemente del mecanismo de key management de VAST.ai.
+                ssh_pubkey = os.getenv("VAST_SSH_PUBLIC_KEY", "")
                 parts = []
+                if ssh_pubkey:
+                    parts.append("mkdir -p /root/.ssh")
+                    parts.append(f"echo {ssh_pubkey!r} >> /root/.ssh/authorized_keys")
+                    parts.append("chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys")
+
+                if not gcp_sa_b64:
+                    return None, " ; ".join(parts) if parts else None
+                env_vars = {"GCP_SA_B64": gcp_sa_b64}
                 if install_gsutil:
-                    # Don't block gcp.json creation if apt-get fails or is missing.
                     parts.append("apt-get update && apt-get install -y google-cloud-cli || true")
                 parts.append("printf %s \"$GCP_SA_B64\" | tr -d '\\r' | base64 -d > /root/gcp.json")
                 parts.append("chmod 600 /root/gcp.json")
@@ -294,7 +301,7 @@ def train_on_instance(
     ports: str | None,
     dataset_dst: str,
     run_cmd: str,
-    artifact_src: str,
+    artifact_src: str | list[str],
     artifact_dst: Path,
     log_path: str | None,
     max_price: float | None,

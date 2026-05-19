@@ -57,6 +57,10 @@ fi
 
 if [ -f "$KEY_DST" ]; then
   chmod 600 "$KEY_DST" || true
+  # Generar la clave publica desde la privada si no existe
+  if [ ! -f "${KEY_DST}.pub" ]; then
+    ssh-keygen -y -f "$KEY_DST" > "${KEY_DST}.pub" 2>/dev/null || true
+  fi
 fi
 
 if [ -f "$KEY_DST" ]; then

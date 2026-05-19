@@ -17,7 +17,8 @@ class TrainRequest(BaseModel):
         ),
         examples=[
             {
-                "train_dataset_url": "gs://my-bucket/datasets/taco.tar.gz",
+                "dataset_gs_uri": "gs://dataset-unlu-module-4/taco_yolo_13_seg.zip",
+                "install_gsutil": True,
                 "model": "yolo11s.pt",
                 "name": "exp_2fases",
                 "project": "runs",
@@ -78,6 +79,8 @@ class TrainRequest(BaseModel):
             "example": {
                 "job_id": "job-2fases-001",
                 "config": {
+                    "dataset_gs_uri": "gs://dataset-unlu-module-4/taco_yolo_13_seg.zip",
+                    "install_gsutil": True,
                     "model": "yolo11s.pt",
                     "name": "exp_2fases",
                     "project": "runs",
