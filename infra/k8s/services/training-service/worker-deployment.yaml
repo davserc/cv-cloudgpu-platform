@@ -31,7 +31,7 @@ spec:
             - name: KAFKA_OUTPUT_TOPIC
               value: "model-trained"
             - name: WORKER_MAX_CONCURRENCY
-              value: "2"
+              value: "1"
           volumeMounts:
             - name: ssh-key
               mountPath: /root/.ssh/id_ed25519_src
