@@ -40,6 +40,7 @@ resources:
   - services/model-registry/service.yaml
 
   # Application — training-service + worker
+  - services/training-service/artifacts-pvc.yaml
   - services/training-service/deployment.yaml
   - services/training-service/worker-deployment.yaml
   - services/training-service/service.yaml

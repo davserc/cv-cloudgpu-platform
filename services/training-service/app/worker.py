@@ -380,7 +380,11 @@ def run() -> None:
                     logger.warning("worker.invalid_message offset=%s error=%s", msg.offset, exc)
                     continue
 
-                slots.acquire()
+                # Acquire a worker slot without blocking the main thread indefinitely.
+                # Calling consumer.poll(0) while waiting keeps the Kafka heartbeat alive
+                # so the consumer group membership survives long-running training jobs.
+                while not slots.acquire(blocking=True, timeout=poll_interval):
+                    consumer.poll(timeout_ms=0)
                 try:
                     executor.submit(process_event, event, msg.topic, msg.partition, msg.offset)
                 except Exception:

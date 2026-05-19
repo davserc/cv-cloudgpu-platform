@@ -110,6 +110,12 @@ class TrainResponse(BaseModel):
     job_id: str = Field(..., examples=["job-123"])
 
 
+class TrainLogResponse(BaseModel):
+    job_id: str
+    log: str
+    available: bool
+
+
 class ModelSummary(BaseModel):
     model_id: str
     status: str | None = None

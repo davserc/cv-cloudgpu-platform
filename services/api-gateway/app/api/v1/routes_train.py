@@ -1,13 +1,14 @@
 import json
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from kafka import KafkaProducer
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.schemas import TrainRequest, TrainResponse
+from app.schemas import TrainLogResponse, TrainRequest, TrainResponse
 from common.db import events, session_scope
 from contracts.events import TrainingJobEvent
 
@@ -54,3 +55,30 @@ def submit_training_job(payload: TrainRequest) -> TrainResponse:
         )
 
     return TrainResponse(status="queued", job_id=job_id)
+
+
+@router.get(
+    "/{job_id}/logs",
+    response_model=TrainLogResponse,
+    summary="Get training job logs",
+    description="Returns the current content of the training log for a job. "
+    "The log is updated periodically while training is running.",
+)
+def get_training_logs(job_id: str) -> TrainLogResponse:
+    log_dir = Path(os.getenv("TRAIN_LOG_DIR", "/data/artifacts"))
+    log_path = log_dir / f"train_{job_id}.log"
+
+    if not log_path.exists():
+        return TrainLogResponse(job_id=job_id, log="", available=False)
+
+    try:
+        content = log_path.read_text(errors="replace")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    # Cap at 100 KB to avoid huge responses
+    max_bytes = 100_000
+    if len(content) > max_bytes:
+        content = content[-max_bytes:]
+
+    return TrainLogResponse(job_id=job_id, log=content, available=True)
