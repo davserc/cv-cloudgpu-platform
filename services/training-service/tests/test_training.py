@@ -70,26 +70,29 @@ class TestResolveArtifactSrc:
         monkeypatch.setenv("TRAIN_MODE", "two_phase")
         monkeypatch.delenv("TRAIN_ARTIFACT_SRC", raising=False)
         event = _make_event(job_id="job-abc")
-        src = resolve_artifact_src(event)
-        assert "/work/runs/segment/" in src
-        assert "best.pt" in src
+        srcs = resolve_artifact_src(event)
+        assert isinstance(srcs, list)
+        assert any("/work/runs/segment/" in s for s in srcs)
+        assert any("best.pt" in s for s in srcs)
+        assert any("last.pt" in s for s in srcs)
 
     def test_uses_override(self, monkeypatch):
         monkeypatch.setenv("TRAIN_ARTIFACT_SRC", "/custom/path/best.pt")
-        src = resolve_artifact_src(_make_event())
-        assert src == "/custom/path/best.pt"
+        srcs = resolve_artifact_src(_make_event())
+        assert srcs == ["/custom/path/best.pt"]
 
     def test_ph2_name_in_path(self, monkeypatch):
         monkeypatch.setenv("TRAIN_MODE", "two_phase")
         monkeypatch.delenv("TRAIN_ARTIFACT_SRC", raising=False)
         event = _make_event({"ph2_name": "my_ph2"})
-        src = resolve_artifact_src(event)
-        assert "my_ph2" in src
+        srcs = resolve_artifact_src(event)
+        assert all("my_ph2" in s for s in srcs)
 
     def test_yolo_mode_path(self, monkeypatch):
         monkeypatch.setenv("TRAIN_MODE", "yolo")
         monkeypatch.delenv("TRAIN_ARTIFACT_SRC", raising=False)
         event = _make_event({"name": "my_exp", "project": "runs"})
-        src = resolve_artifact_src(event)
-        assert "my_exp" in src
-        assert "best.pt" in src
+        srcs = resolve_artifact_src(event)
+        assert all("my_exp" in s for s in srcs)
+        assert any("best.pt" in s for s in srcs)
+        assert any("last.pt" in s for s in srcs)
