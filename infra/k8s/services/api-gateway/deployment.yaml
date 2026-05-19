@@ -6,7 +6,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: api-gateway
@@ -33,6 +33,11 @@ spec:
           env:
             - name: KAFKA_TOPIC
               value: "training-jobs"
+            - name: TRAIN_LOG_DIR
+              value: "/data/artifacts"
+          volumeMounts:
+            - name: artifacts
+              mountPath: /data/artifacts
           livenessProbe:
             httpGet:
               path: /health
@@ -53,3 +58,7 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: artifacts-pvc

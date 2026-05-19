@@ -32,11 +32,16 @@ spec:
               value: "model-trained"
             - name: WORKER_MAX_CONCURRENCY
               value: "1"
+          env:
+            - name: TRAIN_LOG_DIR
+              value: "/data/artifacts"
           volumeMounts:
             - name: ssh-key
               mountPath: /root/.ssh/id_ed25519_src
               subPath: id_ed25519
               readOnly: true
+            - name: artifacts
+              mountPath: /data/artifacts
           resources:
             requests:
               cpu: "100m"
@@ -52,3 +57,6 @@ spec:
               - key: VAST_SSH_PRIVATE_KEY
                 path: id_ed25519
                 mode: 0400
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: artifacts-pvc
