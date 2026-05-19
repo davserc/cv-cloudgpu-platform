@@ -47,8 +47,9 @@ def get_gcs_client(gcp_sa_b64: str | None):
 
     # authorized_user credentials (gcloud auth login) requieren un flujo diferente
     if info.get("type") == "authorized_user":
-        from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+
         creds = Credentials(
             token=None,
             refresh_token=info["refresh_token"],
@@ -93,9 +94,7 @@ def upload_artifact_to_gcs(
 
     if log_path and Path(log_path).exists():
         log_blob_path = f"{prefix}/train.log"
-        bucket.blob(log_blob_path).upload_from_filename(
-            log_path, content_type="text/plain"
-        )
+        bucket.blob(log_blob_path).upload_from_filename(log_path, content_type="text/plain")
         metadata_out["log_uri"] = f"gs://{bucket_name}/{log_blob_path}"
 
     return artifact_uri, metadata_uri
