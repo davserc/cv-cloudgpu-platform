@@ -124,7 +124,11 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
             if int(overrides[epochs_key]) <= int(overrides[cm_key]):
                 logger.warning(
                     "%s_EPOCHS=%s <= %s=%s — forcing %s=0 to avoid YOLO crash",
-                    phase, overrides[epochs_key], cm_key, overrides[cm_key], cm_key,
+                    phase,
+                    overrides[epochs_key],
+                    cm_key,
+                    overrides[cm_key],
+                    cm_key,
                 )
                 overrides[cm_key] = "0"
         except (ValueError, KeyError):

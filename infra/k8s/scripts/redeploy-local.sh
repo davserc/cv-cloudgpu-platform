@@ -10,10 +10,6 @@ NAMESPACE="cv-platform"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../" && pwd)"
 PLATFORM_ROOT="$REPO_ROOT/cv-cloudgpu-platform"
 
-# Exportá DATABASE_URL en tu shell antes de correr el script, p.ej.:
-#   export DATABASE_URL="postgresql+psycopg2://user:pass@host:5432/dbname"
-DB_URL="${DATABASE_URL:-}"
-
 TARGET="${1:-all}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,25 +32,62 @@ build_and_load() {
 patch_deployment() {
   local deploy="$1" container="$2" image="$3"
   log "Patcheando $deploy → $image ..."
-  kubectl_inner kubectl set image "deployment/$deploy" "${container}=${image}" -n "$NAMESPACE"
-  kubectl_inner kubectl patch deployment "$deploy" -n "$NAMESPACE" \
+  kubectl_inner set image "deployment/$deploy" "${container}=${image}" -n "$NAMESPACE"
+  kubectl_inner patch deployment "$deploy" -n "$NAMESPACE" \
     -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"${container}\",\"imagePullPolicy\":\"IfNotPresent\"}]}}}}"
 }
 
 wait_rollout() {
   local deploy="$1"
   log "Esperando rollout de $deploy..."
-  kubectl_inner kubectl rollout status "deployment/$deploy" -n "$NAMESPACE" --timeout=120s
+  kubectl_inner rollout status "deployment/$deploy" -n "$NAMESPACE" --timeout=120s
 }
 
 # ── Migraciones ───────────────────────────────────────────────────────────────
+# Las migraciones corren como Job dentro del cluster para poder alcanzar
+# postgres via el service name (postgres:5432). DATABASE_URL viene del secret.
 run_migrations() {
-  [[ -z "$DB_URL" ]] && die "DATABASE_URL no definida. Exportala antes de ejecutar el script."
   log "Buildeando imagen de migraciones..."
-  docker build -f "$PLATFORM_ROOT/infra/db/Dockerfile" -t cv-migrate "$PLATFORM_ROOT"
-  log "Aplicando migraciones Alembic..."
-  docker run --rm -e "DATABASE_URL=${DB_URL}" cv-migrate \
-    alembic -c infra/db/alembic.ini upgrade head
+  docker build -f "$PLATFORM_ROOT/infra/db/Dockerfile" -t cv-migrate:local "$PLATFORM_ROOT"
+  log "Cargando cv-migrate:local en kind '$CLUSTER'..."
+  kind load docker-image cv-migrate:local --name "$CLUSTER"
+
+  log "Eliminando job previo de migraciones (si existe)..."
+  docker exec "${CLUSTER}-control-plane" \
+    kubectl delete job db-migrate -n "$NAMESPACE" --ignore-not-found=true
+
+  log "Lanzando Job de migraciones dentro del cluster..."
+  docker exec -i "${CLUSTER}-control-plane" kubectl apply -n "$NAMESPACE" -f - << 'YAML'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+spec:
+  ttlSecondsAfterFinished: 120
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: cv-migrate:local
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "-c", "infra/db/alembic.ini", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cv-platform-secrets
+                  key: DATABASE_URL
+YAML
+
+  log "Esperando que el Job de migraciones complete..."
+  docker exec "${CLUSTER}-control-plane" \
+    kubectl wait job/db-migrate -n "$NAMESPACE" --for=condition=complete --timeout=120s
+
+  log "Logs de migraciones:"
+  docker exec "${CLUSTER}-control-plane" \
+    kubectl logs job/db-migrate -n "$NAMESPACE"
+
   ok "Migraciones aplicadas."
 }
 
@@ -123,7 +156,7 @@ echo ""
 echo "═══════════════════════════════════════════"
 echo " Redeploy completado"
 echo "═══════════════════════════════════════════"
-kubectl_inner kubectl get pods -n "$NAMESPACE"
+kubectl_inner get pods -n "$NAMESPACE"
 echo ""
 echo "Para acceder al API Gateway:"
 echo "  kubectl port-forward svc/api-gateway 8080:80 -n $NAMESPACE"
