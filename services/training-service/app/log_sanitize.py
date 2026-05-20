@@ -1,6 +1,5 @@
 import re
 
-
 _PATTERNS = [
     (re.compile(r"([?&]api_key=)[^&\s]+", re.IGNORECASE), r"\1[REDACTED]"),
     (re.compile(r"(Authorization:\s*Bearer\s+)[^\s\"']+", re.IGNORECASE), r"\1[REDACTED]"),

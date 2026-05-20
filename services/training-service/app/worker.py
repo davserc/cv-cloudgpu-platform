@@ -19,7 +19,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from common.db import events, session_scope
 from contracts.events import ModelTrainedEvent, TrainingJobEvent
 
-from .db_ops import ensure_experiment, record_training_end, record_training_start, reconcile_stale_jobs, upsert_model
+from .db_ops import (
+    ensure_experiment,
+    reconcile_stale_jobs,
+    record_training_end,
+    record_training_start,
+    upsert_model,
+)
 from .gcs_utils import upload_artifact_to_gcs
 from .log_sanitize import sanitize_log_text
 from .metrics import parse_ultralytics_metrics
