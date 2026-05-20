@@ -72,3 +72,17 @@ def test_submit_job_rejects_wrong_key(client):
         headers={"X-API-Key": "wrong"},
     )
     assert resp.status_code == 403
+
+
+def test_running_jobs_returns_active_list(client):
+    tc, key, _ = client
+    with patch("app.api.v1.routes_train.session_scope") as mock_scope:
+        mock_session = MagicMock()
+        mock_session.execute.return_value.all.return_value = [("job-1",), ("job-2",)]
+        mock_scope.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_scope.return_value.__exit__ = MagicMock(return_value=False)
+
+        resp = tc.get("/api/v1/train/running", headers={"X-API-Key": key})
+
+    assert resp.status_code == 200
+    assert resp.json() == {"active": True, "running_job_ids": ["job-1", "job-2"]}

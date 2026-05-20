@@ -116,6 +116,11 @@ class TrainLogResponse(BaseModel):
     available: bool
 
 
+class RunningJobsResponse(BaseModel):
+    active: bool
+    running_job_ids: list[str] = Field(default_factory=list)
+
+
 class ModelSummary(BaseModel):
     model_id: str
     status: str | None = None
