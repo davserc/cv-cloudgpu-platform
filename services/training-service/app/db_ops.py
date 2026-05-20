@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -62,6 +62,42 @@ def record_training_start(
                 payload_json=event.model_dump(),
             )
         )
+
+
+def reconcile_stale_jobs(timeout_hours: int = 12) -> int:
+    """Mark running jobs older than timeout_hours as failed.
+
+    Called at worker startup so pods that crashed mid-training don't leave
+    phantom 'running' rows in DB forever. Returns the number of jobs fixed.
+    """
+    cutoff = datetime.now(UTC) - timedelta(hours=timeout_hours)
+    stale_payload = {
+        "error": f"stale_running: no completion signal within {timeout_hours}h (pod restart or crash)",
+    }
+    with session_scope() as session:
+        result = session.execute(
+            update(training_runs)
+            .where(
+                training_runs.c.status == "running",
+                training_runs.c.started_at < cutoff,
+            )
+            .values(
+                status="failed",
+                metrics_json=stale_payload,
+                finished_at=datetime.now(UTC),
+            )
+            .returning(training_runs.c.job_id)
+        )
+        stale_ids = [row[0] for row in result]
+        if stale_ids:
+            session.execute(
+                pg_insert(events).values(
+                    service="training-service",
+                    event_type="TRAINING_RECONCILED",
+                    payload_json={"stale_job_ids": stale_ids, "timeout_hours": timeout_hours},
+                )
+            )
+    return len(stale_ids)
 
 
 def record_training_end(

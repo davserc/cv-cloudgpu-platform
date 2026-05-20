@@ -2,6 +2,8 @@ import logging
 import os
 from pathlib import Path
 
+from .log_sanitize import sanitize_log_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,9 +86,11 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                 if rc is not None and rc != 0:
                     vast_service_module._cvapp_last_run_failed = True
                 if stdout:
-                    logger.info("vast_service.run_capture stdout:\n%s", stdout)
+                    logger.info("vast_service.run_capture stdout:\n%s", sanitize_log_text(stdout))
                 if stderr:
-                    logger.warning("vast_service.run_capture stderr:\n%s", stderr)
+                    logger.warning(
+                        "vast_service.run_capture stderr:\n%s", sanitize_log_text(stderr)
+                    )
                 if rc is not None:
                     logger.info("vast_service.run_capture returncode=%s", rc)
             except Exception as exc:
@@ -376,5 +380,5 @@ def train_on_instance(
     try:
         helpers["train_with_cheapest_instance"](**filtered_kwargs)
     except Exception as exc:
-        logger.error("train_with_cheapest_instance failed: %s", exc, exc_info=True)
+        logger.error("train_with_cheapest_instance failed: %s", sanitize_log_text(exc))
         raise

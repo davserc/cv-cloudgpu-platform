@@ -1,15 +1,16 @@
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from kafka import KafkaProducer
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.schemas import TrainLogResponse, TrainRequest, TrainResponse
-from common.db import events, session_scope
+from app.schemas import RunningJobsResponse, TrainLogResponse, TrainRequest, TrainResponse
+from common.db import events, session_scope, training_runs
 from contracts.events import TrainingJobEvent
 
 router = APIRouter()
@@ -55,6 +56,28 @@ def submit_training_job(payload: TrainRequest) -> TrainResponse:
         )
 
     return TrainResponse(status="queued", job_id=job_id)
+
+
+@router.get(
+    "/running",
+    response_model=RunningJobsResponse,
+    summary="Get currently running training jobs",
+)
+def get_running_training_jobs() -> RunningJobsResponse:
+    # Exclude jobs running longer than the stale timeout — belt-and-suspenders
+    # guard for jobs whose worker died before calling record_training_end.
+    # The worker also reconciles stale rows at startup; this filter covers the
+    # window between a crash and the next worker restart.
+    stale_timeout_h = int(os.getenv("TRAIN_STALE_TIMEOUT_HOURS", "12"))
+    cutoff = datetime.now(UTC) - timedelta(hours=stale_timeout_h)
+    stmt = select(training_runs.c.job_id).where(
+        training_runs.c.status == "running",
+        training_runs.c.started_at > cutoff,
+    )
+    with session_scope() as session:
+        rows = session.execute(stmt).all()
+    running_job_ids = [row[0] for row in rows if row and row[0]]
+    return RunningJobsResponse(active=len(running_job_ids) > 0, running_job_ids=running_job_ids)
 
 
 @router.get(
