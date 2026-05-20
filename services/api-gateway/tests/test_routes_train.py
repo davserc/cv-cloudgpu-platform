@@ -76,7 +76,13 @@ def test_submit_job_rejects_wrong_key(client):
 
 def test_running_jobs_returns_active_list(client):
     tc, key, _ = client
-    with patch("app.api.v1.routes_train.session_scope") as mock_scope:
+    # common.db is stubbed as MagicMock in conftest, so training_runs.c.* are
+    # MagicMocks that SQLAlchemy's select() rejects. Patch select() itself so
+    # the statement construction is bypassed and only session.execute is tested.
+    with (
+        patch("app.api.v1.routes_train.session_scope") as mock_scope,
+        patch("app.api.v1.routes_train.select"),
+    ):
         mock_session = MagicMock()
         mock_session.execute.return_value.all.return_value = [("job-1",), ("job-2",)]
         mock_scope.return_value.__enter__ = MagicMock(return_value=mock_session)
