@@ -170,7 +170,9 @@ def run() -> None:
     stale_timeout = int(os.getenv("TRAIN_STALE_TIMEOUT_HOURS", "12"))
     stale_count = reconcile_stale_jobs(stale_timeout)
     if stale_count:
-        logger.warning("worker.reconcile stale_jobs=%d timeout_hours=%d", stale_count, stale_timeout)
+        logger.warning(
+            "worker.reconcile stale_jobs=%d timeout_hours=%d", stale_count, stale_timeout
+        )
 
     logger.info(
         "worker.start topic=%s output_topic=%s",

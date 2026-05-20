@@ -12,4 +12,3 @@ def sanitize_log_text(value: object) -> str:
     for pattern, replacement in _PATTERNS:
         text = pattern.sub(replacement, text)
     return text
-

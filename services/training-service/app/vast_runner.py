@@ -88,7 +88,9 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                 if stdout:
                     logger.info("vast_service.run_capture stdout:\n%s", sanitize_log_text(stdout))
                 if stderr:
-                    logger.warning("vast_service.run_capture stderr:\n%s", sanitize_log_text(stderr))
+                    logger.warning(
+                        "vast_service.run_capture stderr:\n%s", sanitize_log_text(stderr)
+                    )
                 if rc is not None:
                     logger.info("vast_service.run_capture returncode=%s", rc)
             except Exception as exc:
