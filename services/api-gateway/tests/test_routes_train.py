@@ -76,13 +76,20 @@ def test_submit_job_rejects_wrong_key(client):
 
 def test_running_jobs_returns_active_list(client):
     tc, key, _ = client
-    # common.db is stubbed as MagicMock in conftest, so training_runs.c.* are
-    # MagicMocks that SQLAlchemy's select() rejects. Patch select() itself so
-    # the statement construction is bypassed and only session.execute is tested.
+    # common.db is fully stubbed in conftest, so training_runs.c.* are MagicMocks.
+    # Two issues to work around:
+    # 1. select(MagicMock) → SQLAlchemy rejects non-column args → patch select()
+    # 2. MagicMock.__gt__ returns NotImplemented by default, so
+    #    `training_runs.c.started_at > cutoff` raises TypeError → patch
+    #    training_runs and configure __gt__ return value via the mock's magic
+    #    method attribute (documented pattern: mock.__gt__.return_value = ...).
     with (
         patch("app.api.v1.routes_train.session_scope") as mock_scope,
         patch("app.api.v1.routes_train.select"),
+        patch("app.api.v1.routes_train.training_runs") as mock_tr,
     ):
+        mock_tr.c.started_at.__gt__.return_value = MagicMock()
+
         mock_session = MagicMock()
         mock_session.execute.return_value.all.return_value = [("job-1",), ("job-2",)]
         mock_scope.return_value.__enter__ = MagicMock(return_value=mock_session)
