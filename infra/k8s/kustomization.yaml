@@ -19,6 +19,9 @@ resources:
   # Non-secret shared configuration
   - base/configmap.yaml
 
+  # Kubernetes ServiceAccount con anotación Workload Identity (GKE → Cloud SQL Auth Proxy)
+  - base/serviceaccount.yaml
+
   # Infrastructure — Postgres (local kind)
   - services/postgres/pvc.yaml
   - services/postgres/deployment.yaml
