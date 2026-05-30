@@ -4,7 +4,7 @@ import logging
 import os
 import smtplib
 import textwrap
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -266,7 +266,7 @@ def send_job_notification(
 
     icon = "✅" if status == "succeeded" else "❌"
     subject = f"{icon} [CV Platform] Training job {status}: {job_id[:8]}"
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     html_body = _build_html(job_id, status, metrics, error, timestamp)
     plain_body = _build_plain(job_id, status, metrics, error, timestamp)

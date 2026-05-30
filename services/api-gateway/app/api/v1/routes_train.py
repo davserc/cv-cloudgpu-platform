@@ -9,7 +9,14 @@ from kafka import KafkaProducer
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.schemas import JobStatus, RecentJobsResponse, RunningJobsResponse, TrainLogResponse, TrainRequest, TrainResponse
+from app.schemas import (
+    JobStatus,
+    RecentJobsResponse,
+    RunningJobsResponse,
+    TrainLogResponse,
+    TrainRequest,
+    TrainResponse,
+)
 from common.db import events, session_scope, training_runs
 from contracts.events import TrainingJobEvent
 

@@ -122,7 +122,6 @@ def _annotate_image(image_path: str, results) -> bytes:
     # regardless of the original image resolution.
     try:
         from PIL import Image
-        import numpy as np
     except Exception as exc:
         raise RuntimeError("pillow/numpy not available") from exc
 

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from kafka import KafkaConsumer, KafkaProducer
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from common.db import eval_reports, events, model_versions, session_scope
