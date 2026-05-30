@@ -37,6 +37,7 @@ def _format_error_html(error: str) -> str:
     if "returned non-zero exit status" in raw:
         # Extract exit code
         import re
+
         m = re.search(r"returned non-zero exit status (\d+)", raw)
         if m:
             exit_code = m.group(1)
@@ -58,10 +59,7 @@ def _format_error_html(error: str) -> str:
             f"Exit status {exit_code}</span></div>"
         )
 
-    parts.append(
-        f'<p style="margin:0 0 10px;color:{_TEXT_COLOR};font-size:14px;">'
-        f"{detail}</p>"
-    )
+    parts.append(f'<p style="margin:0 0 10px;color:{_TEXT_COLOR};font-size:14px;">{detail}</p>')
 
     if short_cmd:
         parts.append(
@@ -112,7 +110,7 @@ def _build_html(
             rows += (
                 f"<tr>"
                 f'<td style="padding:8px 12px;border-bottom:1px solid {_BORDER_COLOR};'
-                f"color:{_MUTED_COLOR};font-size:13px;white-space:nowrap;\">{_html_escape(k)}</td>"
+                f'color:{_MUTED_COLOR};font-size:13px;white-space:nowrap;">{_html_escape(k)}</td>'
                 f'<td style="padding:8px 12px;border-bottom:1px solid {_BORDER_COLOR};'
                 f"color:{_TEXT_COLOR};font-size:13px;font-weight:600;"
                 f'font-family:monospace;">{val}</td>'
@@ -283,8 +281,6 @@ def send_job_notification(
             smtp.starttls()
             smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
-        logger.info(
-            "notify.email_sent job_id=%s status=%s to=%s", job_id, status, to_addr
-        )
+        logger.info("notify.email_sent job_id=%s status=%s to=%s", job_id, status, to_addr)
     except Exception as exc:  # noqa: BLE001
         logger.warning("notify.email_failed job_id=%s error=%s", job_id, exc)

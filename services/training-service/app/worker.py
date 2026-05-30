@@ -37,10 +37,10 @@ from .vast_runner import train_on_instance
 logger = logging.getLogger(__name__)
 
 _CUDA_FAIL_MARKERS = [
-    "CUDA_NOT_AVAILABLE:",                        # explicit pre-check marker (legacy)
-    "CUDA initialization: CUDA unknown error",    # PyTorch driver re-init bug
-    "Invalid CUDA 'device=0' requested",          # YOLO device selection failure
-    "CUDA error: no kernel image is available",   # driver/toolkit version mismatch
+    "CUDA_NOT_AVAILABLE:",  # explicit pre-check marker (legacy)
+    "CUDA initialization: CUDA unknown error",  # PyTorch driver re-init bug
+    "Invalid CUDA 'device=0' requested",  # YOLO device selection failure
+    "CUDA error: no kernel image is available",  # driver/toolkit version mismatch
 ]
 _MAX_CUDA_RETRIES = int(os.getenv("TRAIN_MAX_CUDA_RETRIES", "3"))
 
@@ -126,6 +126,7 @@ def _destroy_orphaned_vast_instances() -> None:
         return
     try:
         from services.vast.gpu_manager import VastGPUManager
+
         manager = VastGPUManager(api_key=api_key)
         instances = manager.list_instances()
         if not instances:
@@ -138,14 +139,18 @@ def _destroy_orphaned_vast_instances() -> None:
             price = round(inst.get("dph_total", 0), 4)
             logger.warning(
                 "worker.orphan_cleanup destroying instance_id=%s gpu=%s status=%s price=%s/hr",
-                instance_id, gpu, status, price,
+                instance_id,
+                gpu,
+                status,
+                price,
             )
             try:
                 manager.destroy_instance(instance_id)
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "worker.orphan_cleanup failed to destroy instance_id=%s: %s",
-                    instance_id, exc,
+                    instance_id,
+                    exc,
                 )
     except Exception as exc:  # noqa: BLE001
         logger.warning("worker.orphan_cleanup error: %s", exc)
@@ -224,7 +229,9 @@ def run() -> None:
                 event.job_id,
                 publish_exc,
             )
-        send_job_notification(event.job_id, "failed", error=str(safe_error), to_addr_override=_notify_email(event))
+        send_job_notification(
+            event.job_id, "failed", error=str(safe_error), to_addr_override=_notify_email(event)
+        )
         enqueue_commit(topic, partition, offset)
 
     def handle_shutdown(signum, frame) -> None:
@@ -411,8 +418,10 @@ def run() -> None:
                         "config": retry_config,
                     }
                     record_training_end(
-                        event.job_id, None, "retrying",
-                        f"cuda_retry_{cuda_retries + 1}: {safe_error}"
+                        event.job_id,
+                        None,
+                        "retrying",
+                        f"cuda_retry_{cuda_retries + 1}: {safe_error}",
                     )
                     try:
                         producer.send(os.getenv("KAFKA_TOPIC", "training-jobs"), retry_event)
@@ -437,7 +446,9 @@ def run() -> None:
             if metadata_uri:
                 metrics["metadata_uri"] = metadata_uri
             record_training_end(event.job_id, metrics, "succeeded")
-            send_job_notification(event.job_id, "succeeded", metrics=metrics, to_addr_override=_notify_email(event))
+            send_job_notification(
+                event.job_id, "succeeded", metrics=metrics, to_addr_override=_notify_email(event)
+            )
 
             trained_event = ModelTrainedEvent(
                 event_id=str(uuid4()),

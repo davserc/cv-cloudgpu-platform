@@ -53,6 +53,7 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     _scale_from_name = None
     if _model_raw:
         import re as _re
+
         _m = _re.search(r"yolo\d+([nsmlx])", str(_model_raw))
         if _m:
             _scale_from_name = _m.group(1)
