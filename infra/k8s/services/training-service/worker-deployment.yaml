@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: training-worker
-          image: ghcr.io/davserc/training-service:latest
-          imagePullPolicy: Always
+          image: training-service:local
+          imagePullPolicy: Never
           args: ["python", "-m", "app.worker"]
           envFrom:
             - configMapRef:
@@ -32,9 +32,36 @@ spec:
               value: "model-trained"
             - name: WORKER_MAX_CONCURRENCY
               value: "1"
-          env:
             - name: TRAIN_LOG_DIR
               value: "/data/artifacts"
+            - name: TRAIN_ARTIFACT_DST
+              value: "/data/artifacts"
+            - name: VAST_OFFER_BLACKLIST_TTL_SEC
+              value: "86400"
+            - name: VAST_BOOT_TIMEOUT_BLACKLIST_TTL_SEC
+              value: "3600"
+            - name: TRAIN_SSH_TIMEOUT_SEC
+              value: "600"
+            - name: VAST_OFFER_BLACKLIST_PATH
+              value: "/data/artifacts/.vast_offer_blacklist.json"
+            - name: VAST_PREFERRED_ZONES
+              value: "US,CA,PL,DE,NL,GB,CZ,FR,ES,IT,JP,KR"
+            - name: VAST_MIN_VRAM_GB
+              value: "10"
+            - name: VAST_KEEP_INSTANCE_ON_FAILURE
+              value: "0"
+            - name: DOCKERHUB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: cv-platform-secrets
+                  key: DOCKERHUB_USERNAME
+                  optional: true
+            - name: DOCKERHUB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cv-platform-secrets
+                  key: DOCKERHUB_PASSWORD
+                  optional: true
           volumeMounts:
             - name: ssh-key
               mountPath: /root/.ssh/id_ed25519_src

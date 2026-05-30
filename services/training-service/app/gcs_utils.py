@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +59,12 @@ def get_gcs_client(gcp_sa_b64: str | None):
             client_secret=info["client_secret"],
         )
         creds.refresh(Request())
-        return storage.Client(credentials=creds)
+        # storage.Client without an explicit project calls google.auth.default() to detect
+        # the GCP project, which fails when no ADC is configured in the pod.
+        # Passing any non-None project bypasses detection; upload/download on existing
+        # buckets does not require a valid project ID.
+        project = os.getenv("GCLOUD_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT", "na")
+        return storage.Client(credentials=creds, project=project)
 
     return storage.Client.from_service_account_info(info)
 

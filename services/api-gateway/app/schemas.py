@@ -121,9 +121,28 @@ class RunningJobsResponse(BaseModel):
     running_job_ids: list[str] = Field(default_factory=list)
 
 
+class JobStatus(BaseModel):
+    job_id: str
+    status: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    error: str | None = None
+
+
+class RecentJobsResponse(BaseModel):
+    items: list[JobStatus] = Field(default_factory=list)
+
+
 class ModelSummary(BaseModel):
     model_id: str
     status: str | None = None
+    name: str | None = None
+    version: str | None = None
+    artifact_uri: str | None = None
+    job_id: str | None = None
+    metrics: dict | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class ModelsListResponse(BaseModel):

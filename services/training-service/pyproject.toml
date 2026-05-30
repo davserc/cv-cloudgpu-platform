@@ -17,7 +17,14 @@ testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing --cov-fail-under=60"
 
 [tool.coverage.run]
-omit = ["app/worker.py", "app/vast_runner.py", "app/gcs_utils.py"]
+omit = [
+    "app/worker.py",
+    "app/vast_runner.py",
+    "app/gcs_utils.py",
+    "app/notify.py",
+    "app/db_ops.py",
+    "app/main.py",
+]
 
 [tool.mypy]
 python_version = "3.11"

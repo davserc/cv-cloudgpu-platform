@@ -56,12 +56,13 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                 "echo 'cvapp_disk_check: checking free space in /work/datasets' && "
                 "df -h /work/datasets && "
                 "AVAIL_BYTES=$(df -P -B1 --output=avail /work/datasets | tail -1 | tr -d ' ') && "
-                f"NEED_BYTES=$(gsutil ls -l {dataset_uri} | awk 'NR==1 {{print $1}}') && "
+                # Multiply by 5 to account for: download + extraction + pip packages + training outputs + buffer
+                f"NEED_BYTES=$(gsutil ls -l {dataset_uri} | awk 'NR==1 {{print $1 * 5}}') && "
                 'if [ -z "$NEED_BYTES" ] || [ "$NEED_BYTES" = "0" ]; then '
                 f"echo 'ERROR: cannot determine dataset size for {dataset_uri}' >&2; exit 42; fi && "
                 'if [ "$AVAIL_BYTES" -lt "$NEED_BYTES" ]; then '
                 "echo 'ERROR: insufficient disk space in /work/datasets. "
-                "Need at least '$NEED_BYTES' bytes free before download.' >&2; exit 42; fi && "
+                "Need at least '$NEED_BYTES' bytes (5x dataset size) free.' >&2; exit 42; fi && "
             )
             return cmd.replace("gsutil -m cp", f"{check_snippet}gsutil -m cp", 1)
 
@@ -134,10 +135,13 @@ def _maybe_patch_vast_service(vast_service_module) -> None:
                 if not gcp_sa_b64:
                     return None, " ; ".join(parts) if parts else None
                 env_vars = {"GCP_SA_B64": gcp_sa_b64}
-                if install_gsutil:
-                    parts.append("apt-get update && apt-get install -y google-cloud-cli || true")
                 parts.append("printf %s \"$GCP_SA_B64\" | tr -d '\\r' | base64 -d > /root/gcp.json")
                 parts.append("chmod 600 /root/gcp.json")
+                # gsutil (pip) reads .boto for service-account auth; no gcloud CLI needed.
+                parts.append(
+                    "printf '[Credentials]\\ngs_service_json_key_file = /root/gcp.json\\n"
+                    "[GSUtil]\\nprefer_api = json\\n' > /root/.boto"
+                )
                 return env_vars, " ; ".join(parts)
 
             _vast_dataset._build_onstart_cmd = _build_onstart_cmd_safe
@@ -329,6 +333,8 @@ def train_on_instance(
     launch_retry_backoff_sec = float(os.getenv("VAST_LAUNCH_RETRY_BACKOFF_SEC", "5"))
     offer_blacklist_path = os.getenv("VAST_OFFER_BLACKLIST_PATH", ".vast_offer_blacklist.json")
     offer_blacklist_ttl_sec = int(os.getenv("VAST_OFFER_BLACKLIST_TTL_SEC", "3600"))
+    _boot_ttl_raw = os.getenv("VAST_BOOT_TIMEOUT_BLACKLIST_TTL_SEC")
+    boot_timeout_blacklist_ttl_sec = int(_boot_ttl_raw) if _boot_ttl_raw else None
 
     try:
         import vast_service as _vast_service
@@ -367,8 +373,8 @@ def train_on_instance(
         "destroy_backoff_sec": destroy_backoff_sec,
         "offer_blacklist_path": offer_blacklist_path,
         "offer_blacklist_ttl_sec": offer_blacklist_ttl_sec,
+        "boot_timeout_blacklist_ttl_sec": boot_timeout_blacklist_ttl_sec,
     }
-    kwargs["install_gsutil"] = True
     try:
         import inspect
 

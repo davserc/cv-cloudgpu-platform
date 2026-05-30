@@ -1,27 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-gateway
+  name: model-serving
   namespace: cv-platform
   labels:
-    app: api-gateway
+    app: model-serving
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: api-gateway
+      app: model-serving
   template:
     metadata:
       labels:
-        app: api-gateway
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-        prometheus.io/path: "/metrics"
+        app: model-serving
     spec:
       containers:
-        - name: api-gateway
-          image: api-gateway:local
+        - name: model-serving
+          image: cv-model-serving:local
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
@@ -30,35 +26,33 @@ spec:
                 name: cv-platform-config
             - secretRef:
                 name: cv-platform-secrets
-          env:
-            - name: KAFKA_TOPIC
-              value: "training-jobs"
-            - name: TRAIN_LOG_DIR
-              value: "/data/artifacts"
           volumeMounts:
             - name: artifacts
               mountPath: /data/artifacts
+            - name: model-cache
+              mountPath: /data/models
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 30
-            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 10
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
               memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
       volumes:
         - name: artifacts
           persistentVolumeClaim:
             claimName: artifacts-pvc
+        - name: model-cache
+          emptyDir: {}
