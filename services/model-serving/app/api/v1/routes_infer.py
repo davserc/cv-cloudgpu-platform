@@ -118,26 +118,19 @@ def _results_to_dict(results) -> list[dict[str, Any]]:
 
 
 def _annotate_image(image_path: str, results) -> bytes:
+    # Use YOLO's built-in plot() which scales labels and boxes correctly
+    # regardless of the original image resolution.
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image
+        import numpy as np
     except Exception as exc:
-        raise RuntimeError("pillow not available") from exc
+        raise RuntimeError("pillow/numpy not available") from exc
 
-    img = Image.open(image_path).convert("RGB")
-    draw = ImageDraw.Draw(img)
-    if results and results[0].boxes is not None:
-        for box in results[0].boxes:
-            xyxy = box.xyxy[0].tolist()
-            conf = float(box.conf[0]) if box.conf is not None else None
-            cls = int(box.cls[0]) if box.cls is not None else None
-            name = results[0].names.get(cls) if cls is not None else None
-            label = f"{name or cls} {conf:.2f}" if conf is not None else f"{name or cls}"
-            x1, y1, x2, y2 = xyxy
-            draw.rectangle([x1, y1, x2, y2], outline="red", width=3)
-            draw.text((x1, max(0, y1 - 12)), label, fill="red")
+    annotated_bgr = results[0].plot()  # ndarray BGR
+    img_pil = Image.fromarray(annotated_bgr[..., ::-1])  # BGR → RGB
 
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img_pil.save(buf, format="PNG")
     return buf.getvalue()
 
 

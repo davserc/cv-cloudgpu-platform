@@ -1,101 +1,158 @@
-﻿                                                                                                                                                    # DiplomaturaIA-Computer-Vision
+# cv-cloudgpu-platform
 
-Monorepo para una arquitectura de microservicios con FastAPI orientada a entrenamiento, evaluación, registro y serving de modelos de visión por computadora.
+Monorepo de microservicios para entrenamiento, registro, evaluación y serving de modelos de visión por computadora sobre GPU en la nube (Vast.ai).
+
+## Arquitectura
+
+```
+cv-platform-ui  →  api-gateway  →  Kafka  →  training-worker
+                              ↘  model-registry
+                              ↘  model-serving
+```
+
+| Servicio | Puerto | Descripción |
+|---|---|---|
+| `api-gateway` | 8000 | Punto de entrada, autenticación, proxy |
+| `training-service` | — | API de jobs (stub); worker consume Kafka |
+| `training-worker` | — | Ejecuta entrenamiento en Vast.ai |
+| `model-registry` | 8000 | Registro de versiones de modelos |
+| `model-serving` | 8000 | Inferencia YOLO (JSON y PNG anotado) |
+| `evaluation-service` | — | Evaluación automática post-training |
 
 ## Estructura
-- `services/` microservicios (gateway, training, evaluation, registry, serving)
-- `libs/` librerías compartidas (common, contracts, ml)
-- `infra/` docker/k8s
-- `docs/` documentación y OpenAPI
-- `storage/` almacenamiento local de desarrollo
+
+```
+services/           microservicios
+libs/common/        DB schema, session SQLAlchemy compartido
+libs/contracts/     Eventos Kafka (TrainingJobEvent, ModelTrainedEvent)
+infra/k8s/          Manifiestos Kubernetes
+```
 
 ## Requisitos
-- Python 3.10+ (recomendado 3.11)
-- Docker (para servicios de infraestructura local)
 
-## Flujo (alto nivel)
-1. El gateway recibe solicitudes.
-2. Training genera un modelo y publica evento.
-3. Evaluation calcula métricas y publica evento.
-4. Model Registry guarda versiones/estados.
-5. Serving descarga artefactos y responde inferencias.
+- Docker Desktop con kind
+- `kubectl`, `kind`
+- Python 3.11+
 
-## Uso rápido (local)
-Ver `docs/runbooks/local.md` y `infra/docker/docker-compose.local.yml`.
+## Deploy local (kind)
 
-Variables de base de datos para local (`.env.develop`):
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_NAME`
-- `API_GATEWAY_API_KEY` (required for `/api/v1/train`, `/api/v1/infer`, `/api/v1/models`)
-
-`DATABASE_URL` se construye en runtime a partir de esas variables. No versionar credenciales reales.
-
-Seguridad API:
-- Enviar header `X-API-Key: <API_GATEWAY_API_KEY>` en endpoints públicos.
-- Sin credencial o con credencial inválida el gateway responde `401/403`.
-
-### Base de datos local (automatizado)
-
-1. Ejecutar todo en un paso:
-   - `powershell -ExecutionPolicy Bypass -File scripts/local-dev-up.ps1`
-2. Bajar DB local:
-   - `powershell -ExecutionPolicy Bypass -File scripts/local-db-down.ps1`
-
-Opciones:
-- Sobrescribir `.env.develop` desde template:
-  - `powershell -ExecutionPolicy Bypass -File scripts/local-dev-up.ps1 -ForceEnv`
-- Levantar sin rebuild de imágenes:
-  - `powershell -ExecutionPolicy Bypass -File scripts/local-dev-up.ps1 -SkipBuild`
-
-## Deploy con Kubernetes
-
-Los manifiestos están en `infra/k8s/`. Se aplican con Kustomize (`kubectl apply -k`).
-
-### Prerequisito: crear el Secret con valores reales
+### 1. Crear cluster
 
 ```bash
-cp infra/k8s/base/secret.yaml.tpl infra/k8s/base/secret.yaml
-# editar secret.yaml con DB_USER, DB_PASSWORD, DATABASE_URL, VAST_API_KEY, etc.
+kind create cluster --name cv-platform --config infra/k8s/kind-config.yaml
 ```
 
-> `secret.yaml` está en `.gitignore` — nunca se commitea.
+### 2. Construir y cargar imágenes locales
 
-### Opción A — Local con kind
+Las imágenes usan `imagePullPolicy: Never` — se cargan directamente en el nodo kind.
 
 ```bash
-# Requisitos: kind, kubectl, Docker corriendo
-bash infra/k8s/scripts/deploy-local.sh
+# Desde la raíz del monorepo (d:\Diplomatura-IA\TpFinal4)
+docker build -f cv-cloudgpu-platform/services/api-gateway/Dockerfile \
+  -t api-gateway:local cv-cloudgpu-platform/
+kind load docker-image api-gateway:local --name cv-platform
 
-# Acceder al api-gateway:
-kubectl port-forward svc/api-gateway 8080:80 -n cv-platform
-curl http://localhost:8080/health
+docker build -f cv-cloudgpu-platform/services/training-service/Dockerfile \
+  -t training-service:local .
+kind load docker-image training-service:local --name cv-platform
+
+docker build -f cv-cloudgpu-platform/services/model-serving/app/Dockerfile \
+  -t cv-model-serving:local cv-cloudgpu-platform/
+kind load docker-image cv-model-serving:local --name cv-platform
 ```
 
-### Opción B — GKE (Google Kubernetes Engine)
+### 3. Aplicar manifiestos
 
 ```bash
-# Requisitos: gcloud CLI autenticado, kubectl
-export GCP_PROJECT=project-38c56a6f-24a9-45fb-aef
-bash infra/k8s/scripts/deploy-gke.sh
+kubectl apply -k infra/k8s/
 ```
 
-El script crea el cluster, obtiene credenciales y aplica todos los manifiestos.
-La IP pública del api-gateway aparece al finalizar.
-
-> Para usar Cloud SQL en vez del Postgres en cluster: actualizá `DATABASE_URL`
-> en `secret.yaml` para apuntar a `cloud-sql-proxy:5432`.
-
-### Comandos útiles post-deploy
+### 4. Port-forward para acceso local
 
 ```bash
-kubectl get pods     -n cv-platform          # estado de pods
-kubectl get services -n cv-platform          # IPs y puertos
-kubectl logs -n cv-platform deploy/api-gateway   # logs
-kubectl rollout restart deploy -n cv-platform    # redeploy con nueva imagen
+kubectl port-forward svc/api-gateway 8080:8000 -n cv-platform
+# UI → http://localhost:5173  (npm run dev en cv-platform-ui/)
+```
+
+### Actualizar un servicio tras cambios
+
+```bash
+docker build ... -t <imagen>:local .
+kind load docker-image <imagen>:local --name cv-platform
+kubectl rollout restart deployment/<nombre> -n cv-platform
+```
+
+> `kubectl rollout restart deploy -n cv-platform` reinicia **todos** los deployments.
+> No descarga imágenes nuevas — solo usa las ya cargadas con `kind load`.
+
+## Variables de entorno / Secrets
+
+El Secret `cv-platform-secrets` debe contener:
+
+| Clave | Descripción |
+|---|---|
+| `API_GATEWAY_API_KEY` | Clave para `X-API-KEY` header |
+| `DATABASE_URL` | `postgresql+psycopg2://user:pass@postgres:5432/db` |
+| `VAST_API_KEY` | Clave de Vast.ai |
+| `VAST_SSH_PRIVATE_KEY` | Clave privada SSH para instancias Vast.ai |
+| `GCP_SA_B64` | Service account GCP en base64 (para datasets GCS) |
+
+> `secret.yaml` está en `.gitignore`. Usar el template `secret.yaml.tpl`.
+
+## Entrenamiento en Vast.ai
+
+El `training-worker` selecciona automáticamente la GPU más barata disponible, ejecuta el entrenamiento en dos fases (backbone frozen → full fine-tune) y descarga el artifact al PVC.
+
+**Blacklist de offers problemáticas:**
+
+```
+/data/artifacts/.vast_offer_blacklist.json   (en el PVC, persiste entre reinicios)
+```
+
+TTL por defecto: 7 días (`VAST_OFFER_BLACKLIST_TTL_SEC=604800`).
+
+Las ofertas con CUDA initialization bug se añaden automáticamente al blacklist al detectar `CUDA_NOT_AVAILABLE:` en el log. El worker reintenta hasta 3 veces (`TRAIN_MAX_CUDA_RETRIES=3`) eligiendo una GPU diferente cada vez.
+
+**Checkpointing automático en GCS:**
+
+Si se setea `TRAIN_CHECKPOINT_GCS_BASE_URI`, el worker sincroniza `/work/checkpoints/` con GCS durante el entrenamiento. Si la instancia se cae (timeout SSH, preemption, etc.) y el job se relanza con el mismo `job_id`, el training retoma desde el último checkpoint subido — sin modificar nada de la lógica existente.
+
+| Variable | Descripción |
+|---|---|
+| `TRAIN_CHECKPOINT_GCS_BASE_URI` | URI base en GCS, ej. `gs://bucket/checkpoints`. Si no está seteada, el comportamiento es idéntico al original. |
+| `TRAIN_CHECKPOINT_SYNC_INTERVAL_SEC` | Cada cuántos segundos se sincroniza a GCS (default: `300`) |
+
+Flujo:
+1. Al iniciar la instancia, descarga `{base}/{job_id}/` → `/work/checkpoints/`
+2. `run_service.sh` detecta el checkpoint y pasa `--resume` automáticamente a YOLO
+3. Cada 5 minutos, sube `/work/checkpoints/` a GCS en background
+4. Al terminar (éxito o fallo), hace una sincronización final
+
+Para activarlo, agregar al Secret o ConfigMap:
+```yaml
+TRAIN_CHECKPOINT_GCS_BASE_URI: "gs://unlu-genai-serranodavid-computer_vision_yolo/checkpoints"
+```
+
+## Inferencia
+
+```bash
+# JSON con detecciones
+POST /api/v1/infer/upload          (multipart, devuelve JSON)
+
+# Imagen PNG anotada con bounding boxes
+POST /api/v1/infer/upload/annotated (multipart, devuelve PNG)
+```
+
+## Comandos útiles
+
+```bash
+kubectl get pods -n cv-platform
+kubectl logs -n cv-platform deploy/training-worker -f
+kubectl logs -n cv-platform deploy/api-gateway --tail=50
+kubectl exec -n cv-platform deploy/training-worker -- cat .vast_offer_blacklist.json
+kubectl rollout restart deploy -n cv-platform
 ```
 
 ## Estado
-Estructura base. Los servicios y scripts se completarán incrementalmente.
+
+Sistema funcional end-to-end: envío de jobs → entrenamiento en Vast.ai → registro de modelo → inferencia con imagen anotada → UI con ranking de modelos por mAP50.

@@ -21,6 +21,7 @@ from contracts.events import ModelTrainedEvent, TrainingJobEvent
 
 from .db_ops import (
     ensure_experiment,
+    get_job_status,
     reconcile_stale_jobs,
     record_training_end,
     record_training_start,
@@ -29,10 +30,29 @@ from .db_ops import (
 from .gcs_utils import upload_artifact_to_gcs
 from .log_sanitize import sanitize_log_text
 from .metrics import parse_ultralytics_metrics
+from .notify import send_job_notification
 from .training import build_run_cmd, model_base_name, resolve_artifact_src
 from .vast_runner import train_on_instance
 
 logger = logging.getLogger(__name__)
+
+_CUDA_FAIL_MARKERS = [
+    "CUDA_NOT_AVAILABLE:",                        # explicit pre-check marker (legacy)
+    "CUDA initialization: CUDA unknown error",    # PyTorch driver re-init bug
+    "Invalid CUDA 'device=0' requested",          # YOLO device selection failure
+    "CUDA error: no kernel image is available",   # driver/toolkit version mismatch
+]
+_MAX_CUDA_RETRIES = int(os.getenv("TRAIN_MAX_CUDA_RETRIES", "3"))
+
+
+def _log_has_cuda_failure(log_path: str | None) -> bool:
+    if not log_path:
+        return False
+    try:
+        text = Path(log_path).read_text(errors="ignore")
+        return any(marker in text for marker in _CUDA_FAIL_MARKERS)
+    except OSError:
+        return False
 
 
 def build_consumer() -> KafkaConsumer:
@@ -73,6 +93,16 @@ def _env_float(name: str) -> float | None:
         return None
 
 
+def _cfg_float(event: TrainingJobEvent, config_key: str, env_key: str) -> float | None:
+    raw = _cfg(event, config_key, env_key)
+    if raw is None or raw == "":
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return _env_float(env_key)
+
+
 def _cfg(event: TrainingJobEvent, key: str, env_key: str, default=None):
     if event.config and isinstance(event.config, dict):
         val = event.config.get(key)
@@ -80,6 +110,45 @@ def _cfg(event: TrainingJobEvent, key: str, env_key: str, default=None):
             return val
     env_val = os.getenv(env_key)
     return env_val if env_val is not None else default
+
+
+def _destroy_orphaned_vast_instances() -> None:
+    """Destroy any running Vast.ai instances left over from a previous pod run.
+
+    Called once at worker startup. Because WORKER_MAX_CONCURRENCY=1 and jobs
+    are not checkpointed, any instance that exists when the pod starts is
+    orphaned — the training cannot be resumed and it must be destroyed to
+    stop billing.
+    """
+    api_key = os.getenv("VAST_API_KEY") or os.getenv("VASTAI_API_KEY")
+    if not api_key:
+        logger.warning("worker.orphan_cleanup skipped: no VAST_API_KEY")
+        return
+    try:
+        from services.vast.gpu_manager import VastGPUManager
+        manager = VastGPUManager(api_key=api_key)
+        instances = manager.list_instances()
+        if not instances:
+            logger.info("worker.orphan_cleanup no instances found")
+            return
+        for inst in instances:
+            instance_id = inst.get("id")
+            gpu = inst.get("gpu_name", "?")
+            status = inst.get("actual_status", "?")
+            price = round(inst.get("dph_total", 0), 4)
+            logger.warning(
+                "worker.orphan_cleanup destroying instance_id=%s gpu=%s status=%s price=%s/hr",
+                instance_id, gpu, status, price,
+            )
+            try:
+                manager.destroy_instance(instance_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "worker.orphan_cleanup failed to destroy instance_id=%s: %s",
+                    instance_id, exc,
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("worker.orphan_cleanup error: %s", exc)
 
 
 def run() -> None:
@@ -125,6 +194,9 @@ def run() -> None:
         except TypeError:
             return OffsetAndMetadata(next_offset, None, -1)
 
+    def _notify_email(event: TrainingJobEvent) -> str | None:
+        return _cfg(event, "notify_email", "NOTIFY_EMAIL_TO") or None
+
     def publish_failed(
         event: TrainingJobEvent, error: str, topic: str, partition: int, offset: int
     ) -> None:
@@ -152,6 +224,7 @@ def run() -> None:
                 event.job_id,
                 publish_exc,
             )
+        send_job_notification(event.job_id, "failed", error=str(safe_error), to_addr_override=_notify_email(event))
         enqueue_commit(topic, partition, offset)
 
     def handle_shutdown(signum, frame) -> None:
@@ -174,6 +247,8 @@ def run() -> None:
             "worker.reconcile stale_jobs=%d timeout_hours=%d", stale_count, stale_timeout
         )
 
+    _destroy_orphaned_vast_instances()
+
     logger.info(
         "worker.start topic=%s output_topic=%s",
         os.getenv("KAFKA_TOPIC", "training-jobs"),
@@ -193,6 +268,16 @@ def run() -> None:
             project = _cfg(event, "project", "TRAIN_PROJECT", "runs")
             model = _cfg(event, "model", "TRAIN_MODEL", "yolo11s.pt")
             name = _cfg(event, "name", "TRAIN_NAME", event.job_id)
+
+            current_status = get_job_status(event.job_id)
+            if current_status in ("running", "succeeded"):
+                logger.warning(
+                    "worker.skip_duplicate job_id=%s status=%s — ignoring event",
+                    event.job_id,
+                    current_status,
+                )
+                enqueue_commit(topic, partition, offset)
+                return
 
             experiment_id = ensure_experiment(project)
             upsert_model(f"model-{event.job_id}", name or model_base_name(str(model)))
@@ -251,8 +336,8 @@ def run() -> None:
                     artifact_src=artifact_src,
                     artifact_dst=artifact_dst,
                     log_path=log_path,
-                    max_price=_env_float("VAST_MAX_PRICE"),
-                    min_cuda=_env_float("VAST_MIN_CUDA"),
+                    max_price=_cfg_float(event, "gpu_max_price", "VAST_MAX_PRICE"),
+                    min_cuda=_cfg_float(event, "gpu_min_cuda", "VAST_MIN_CUDA"),
                     max_cuda=_env_float("VAST_MAX_CUDA"),
                     gcp_sa_b64=gcp_sa_b64,
                     dataset_gs_uri=dataset_gs_uri,
@@ -308,15 +393,51 @@ def run() -> None:
 
             except Exception as exc:
                 safe_error = sanitize_log_text(exc)
-                logger.error("worker.train_failed job_id=%s error=%s", event.job_id, safe_error)
-                record_training_end(event.job_id, None, "failed", safe_error)
-                publish_failed(event, safe_error, topic, partition, offset)
+                cuda_retries = int((event.config or {}).get("_cuda_retries", 0))
+                if _log_has_cuda_failure(log_path) and cuda_retries < _MAX_CUDA_RETRIES:
+                    logger.warning(
+                        "worker.cuda_retry job_id=%s attempt=%d/%d",
+                        event.job_id,
+                        cuda_retries + 1,
+                        _MAX_CUDA_RETRIES,
+                    )
+                    retry_config = dict(event.config or {})
+                    retry_config["_cuda_retries"] = cuda_retries + 1
+                    retry_event = {
+                        "event_type": "training-job",
+                        "event_id": str(uuid4()),
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "job_id": event.job_id,
+                        "config": retry_config,
+                    }
+                    record_training_end(
+                        event.job_id, None, "retrying",
+                        f"cuda_retry_{cuda_retries + 1}: {safe_error}"
+                    )
+                    try:
+                        producer.send(os.getenv("KAFKA_TOPIC", "training-jobs"), retry_event)
+                        producer.flush()
+                        logger.info("worker.cuda_retry_queued job_id=%s", event.job_id)
+                    except Exception as pub_exc:
+                        logger.error(
+                            "worker.cuda_retry_publish_failed job_id=%s error=%s",
+                            event.job_id,
+                            pub_exc,
+                        )
+                        record_training_end(event.job_id, None, "failed", safe_error)
+                        publish_failed(event, safe_error, topic, partition, offset)
+                    enqueue_commit(topic, partition, offset)
+                else:
+                    logger.error("worker.train_failed job_id=%s error=%s", event.job_id, safe_error)
+                    record_training_end(event.job_id, None, "failed", safe_error)
+                    publish_failed(event, safe_error, topic, partition, offset)
                 return
 
             metrics: dict[str, Any] = parse_ultralytics_metrics(log_path) or {"mAP": 0.0}
             if metadata_uri:
                 metrics["metadata_uri"] = metadata_uri
             record_training_end(event.job_id, metrics, "succeeded")
+            send_job_notification(event.job_id, "succeeded", metrics=metrics, to_addr_override=_notify_email(event))
 
             trained_event = ModelTrainedEvent(
                 event_id=str(uuid4()),

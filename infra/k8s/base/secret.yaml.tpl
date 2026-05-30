@@ -20,3 +20,7 @@ stringData:
   # Base64-encoded ed25519 private key used by training-worker to SSH into Vast.ai instances.
   # Generate with: base64 -w0 secrets/vast_ed25519
   VAST_SSH_PRIVATE_KEY: "CHANGE_ME"
+  # Gmail App Password para notificaciones de jobs.
+  # Generarlo en: https://myaccount.google.com/apppasswords (requiere 2FA activo)
+  # Activar en cuenta remitente: davserc@gmail.com
+  NOTIFY_SMTP_PASSWORD: "CHANGE_ME"

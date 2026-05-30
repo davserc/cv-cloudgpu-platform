@@ -27,6 +27,14 @@ def _cfg(event: TrainingJobEvent, config_key: str, env_key: str, default: Any = 
     return env_val if env_val is not None else default
 
 
+def _checkpoint_gcs_uri(event: TrainingJobEvent) -> str | None:
+    base = os.getenv("TRAIN_CHECKPOINT_GCS_BASE_URI")
+    if not base:
+        return None
+    job_id = os.getenv("JOB_ID") or event.job_id
+    return f"{base.rstrip('/')}/{job_id}"
+
+
 def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     """Invoke run_service.sh on the remote instance with env var overrides."""
     overrides: dict[str, Any] = {}
@@ -39,7 +47,16 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     if dataset_yaml:
         overrides["DATASET_YAML"] = dataset_yaml
 
-    overrides["MODEL_SCALE"] = _cfg(event, "model_scale", "MODEL_SCALE", "m")
+    # Extract scale from model name if model_scale not explicitly set.
+    # e.g. "yolo11l-seg.pt" → "l", "yolo11x.pt" → "x"
+    _model_raw = (event.config or {}).get("model", "")
+    _scale_from_name = None
+    if _model_raw:
+        import re as _re
+        _m = _re.search(r"yolo\d+([nsmlx])", str(_model_raw))
+        if _m:
+            _scale_from_name = _m.group(1)
+    overrides["MODEL_SCALE"] = _cfg(event, "model_scale", "MODEL_SCALE", _scale_from_name or "m")
     overrides["WORKERS"] = _cfg(event, "workers", "WORKERS", "4")
     overrides["DEVICE"] = _cfg(event, "device", "DEVICE", "0")
 
@@ -52,8 +69,8 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
 
     overrides["PH1_EPOCHS"] = _cfg(event, "ph1_epochs", "PH1_EPOCHS", "25")
     overrides["PH1_PATIENCE"] = _cfg(event, "ph1_patience", "PH1_PATIENCE", "25")
-    overrides["PH2_EPOCHS"] = _cfg(event, "ph2_epochs", "PH2_EPOCHS", "100")
-    overrides["PH2_PATIENCE"] = _cfg(event, "ph2_patience", "PH2_PATIENCE", "20")
+    overrides["PH2_EPOCHS"] = _cfg(event, "ph2_epochs", "PH2_EPOCHS", "150")
+    overrides["PH2_PATIENCE"] = _cfg(event, "ph2_patience", "PH2_PATIENCE", "40")
     overrides["PH1_IMGSZ"] = _cfg(event, "ph1_imgsz", "PH1_IMGSZ", 896)
     overrides["PH2_IMGSZ"] = _cfg(event, "ph2_imgsz", "PH2_IMGSZ", 896)
     overrides["PH1_BATCH"] = _cfg(event, "ph1_batch", "PH1_BATCH", "-1")
@@ -67,13 +84,13 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     overrides["PH1_FREEZE"] = _cfg(event, "ph1_freeze", "PH1_FREEZE", "10")
     overrides["PH2_FREEZE"] = _cfg(event, "ph2_freeze", "PH2_FREEZE", "0")
     overrides["PH1_LR0"] = _cfg(event, "ph1_lr0", "PH1_LR0", "0.01")
-    overrides["PH2_LR0"] = _cfg(event, "ph2_lr0", "PH2_LR0", "0.002")
+    overrides["PH2_LR0"] = _cfg(event, "ph2_lr0", "PH2_LR0", "0.003")
     overrides["PH1_LRF"] = _cfg(event, "ph1_lrf", "PH1_LRF", "0.01")
     overrides["PH2_LRF"] = _cfg(event, "ph2_lrf", "PH2_LRF", "0.01")
     overrides["PH1_MOSAIC"] = _cfg(event, "ph1_mosaic", "PH1_MOSAIC", "0.7")
     overrides["PH2_MOSAIC"] = _cfg(event, "ph2_mosaic", "PH2_MOSAIC", "0.7")
     overrides["PH1_CLOSE_MOSAIC"] = _cfg(event, "ph1_close_mosaic", "PH1_CLOSE_MOSAIC", "10")
-    overrides["PH2_CLOSE_MOSAIC"] = _cfg(event, "ph2_close_mosaic", "PH2_CLOSE_MOSAIC", "15")
+    overrides["PH2_CLOSE_MOSAIC"] = _cfg(event, "ph2_close_mosaic", "PH2_CLOSE_MOSAIC", "20")
     overrides["PH1_DEGREES"] = _cfg(event, "ph1_degrees", "PH1_DEGREES", "8")
     overrides["PH2_DEGREES"] = _cfg(event, "ph2_degrees", "PH2_DEGREES", "8")
     overrides["PH1_TRANSLATE"] = _cfg(event, "ph1_translate", "PH1_TRANSLATE", "0.08")
@@ -108,7 +125,7 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
     )
     overrides["PH1_SAVE_PERIOD"] = _cfg(event, "ph1_save_period", "PH1_SAVE_PERIOD", "5")
     overrides["PH2_SAVE_PERIOD"] = _cfg(event, "ph2_save_period", "PH2_SAVE_PERIOD", "3")
-    overrides["PH2_DROPOUT"] = _cfg(event, "ph2_dropout", "PH2_DROPOUT", "0.20")
+    overrides["PH2_DROPOUT"] = _cfg(event, "ph2_dropout", "PH2_DROPOUT", "0.10")
     overrides["PH2_COS_LR"] = _cfg(event, "ph2_cos_lr", "PH2_COS_LR", "1")
     # fl_gamma removed from ultralytics >= 8.3.x — default to disabled to avoid
     # passing a flag that train_yolo.py now silently ignores anyway.
@@ -137,7 +154,39 @@ def _build_two_phase_cmd(event: TrainingJobEvent) -> str:
             pass
 
     env_prefix = " ".join(f"{k}={v}" for k, v in overrides.items())
-    return f"cd /work && PYTHONPATH=/work {env_prefix} bash /work/run_service.sh"
+    # Note: no separate CUDA pre-check here. Running a Python CUDA check as a
+    # separate process before training initializes the CUDA context, then
+    # destroys it on exit. On some Vast.ai hosts this leaves the driver in an
+    # inconsistent state so the training process can't re-initialize CUDA.
+    # CUDA failures are detected from the training log instead (see worker.py).
+    train_cmd = f"cd /work && PYTHONPATH=/work {env_prefix} bash /work/run_service.sh"
+
+    gcs_uri = _checkpoint_gcs_uri(event)
+    if not gcs_uri:
+        return train_cmd
+
+    sync_interval = int(os.getenv("TRAIN_CHECKPOINT_SYNC_INTERVAL_SEC", "300"))
+    # Restore checkpoints from GCS before training (non-fatal if none exist),
+    # run a background uploader that syncs every N seconds while training,
+    # do a final sync after training, then exit with training's exit code.
+    # NOTE: Do NOT use `exit $_CVAPP_RC` here — _start_training_detached wraps
+    # this string as: `bash -c "<cmd>; echo $? > /work/train.exit"`.
+    # An `exit` inside <cmd> terminates bash before the echo runs, so train.exit
+    # never gets written and _poll_training_status returns EXIT:unknown → code 1
+    # even on successful training. Use a subshell `(exit $_CVAPP_RC)` instead,
+    # which sets $? in the parent shell without terminating it.
+    return (
+        f"mkdir -p /work/checkpoints/ph1 /work/checkpoints/ph2"
+        f" && gsutil -m rsync -r {gcs_uri}/ /work/checkpoints/ 2>/dev/null || true"
+        f"; ( while true; do sleep {sync_interval};"
+        f" gsutil -m rsync -r /work/checkpoints/ {gcs_uri}/ 2>/dev/null || true;"
+        f" done ) & _CVAPP_CKPT_PID=$!"
+        f"; {train_cmd}"
+        f"; _CVAPP_RC=$?"
+        f"; kill $_CVAPP_CKPT_PID 2>/dev/null || true"
+        f"; gsutil -m rsync -r /work/checkpoints/ {gcs_uri}/ 2>/dev/null || true"
+        f"; (exit $_CVAPP_RC)"
+    )
 
 
 def build_run_cmd(event: TrainingJobEvent) -> str:

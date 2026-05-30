@@ -106,13 +106,11 @@ def run() -> None:
                                 metrics_json=evaluated_event.metrics,
                             )
                         )
-                        session.execute(
-                            update(model_versions)
-                            .where(model_versions.c.id == version_id)
-                            .values(
-                                metrics_json=evaluated_event.metrics, updated_at=datetime.now(UTC)
-                            )
-                        )
+                        # NOTE: do NOT overwrite model_versions.metrics_json here.
+                        # Evaluation results belong in eval_reports; overwriting
+                        # metrics_json would destroy the training metrics stored by
+                        # the model-registry worker. When real evaluation is
+                        # implemented, use update_latest_model() which merges metrics.
                     session.execute(
                         pg_insert(events).values(
                             service="evaluation-service",

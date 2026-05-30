@@ -9,7 +9,7 @@ from kafka import KafkaProducer
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.schemas import RunningJobsResponse, TrainLogResponse, TrainRequest, TrainResponse
+from app.schemas import JobStatus, RecentJobsResponse, RunningJobsResponse, TrainLogResponse, TrainRequest, TrainResponse
 from common.db import events, session_scope, training_runs
 from contracts.events import TrainingJobEvent
 
@@ -56,6 +56,38 @@ def submit_training_job(payload: TrainRequest) -> TrainResponse:
         )
 
     return TrainResponse(status="queued", job_id=job_id)
+
+
+@router.get(
+    "/recent",
+    response_model=RecentJobsResponse,
+    summary="Get recent training jobs with their status",
+)
+def get_recent_training_jobs(limit: int = 50) -> RecentJobsResponse:
+    stmt = (
+        select(
+            training_runs.c.job_id,
+            training_runs.c.status,
+            training_runs.c.started_at,
+            training_runs.c.finished_at,
+            training_runs.c.metrics_json,
+        )
+        .order_by(training_runs.c.started_at.desc())
+        .limit(limit)
+    )
+    with session_scope() as session:
+        rows = session.execute(stmt).mappings().all()
+    items = [
+        JobStatus(
+            job_id=row["job_id"],
+            status=row["status"] or "unknown",
+            started_at=row["started_at"].isoformat() if row["started_at"] else None,
+            finished_at=row["finished_at"].isoformat() if row["finished_at"] else None,
+            error=(row["metrics_json"] or {}).get("error"),
+        )
+        for row in rows
+    ]
+    return RecentJobsResponse(items=items)
 
 
 @router.get(

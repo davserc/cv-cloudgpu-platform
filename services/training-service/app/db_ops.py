@@ -64,6 +64,14 @@ def record_training_start(
         )
 
 
+def get_job_status(job_id: str) -> str | None:
+    """Return the current status of a training run, or None if it doesn't exist."""
+    with session_scope() as session:
+        return session.execute(
+            select(training_runs.c.status).where(training_runs.c.job_id == job_id)
+        ).scalar()
+
+
 def reconcile_stale_jobs(timeout_hours: int = 12) -> int:
     """Mark running jobs older than timeout_hours as failed.
 
