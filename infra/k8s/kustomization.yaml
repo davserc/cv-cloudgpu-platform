@@ -1,14 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Apply all resources to the cv-platform namespace.
-# Before applying, create the secret from the template:
-#   cp infra/k8s/base/secret.yaml.tpl infra/k8s/base/secret.yaml
-#   # fill in real values in secret.yaml
-#   kubectl apply -f infra/k8s/base/secret.yaml
+# Base compartida entre entornos. NO aplicar directamente.
+# Usar los overlays según entorno:
 #
-# Then deploy everything else:
-#   kubectl apply -k infra/k8s/
+#   Local (kind):
+#     kubectl apply -f infra/k8s/overlays/local/secret.yaml   # 1 sola vez
+#     kubectl apply -k infra/k8s/overlays/local/
+#
+#   Cloud (GKE):
+#     kubectl apply -f infra/k8s/overlays/cloud/secret.yaml   # 1 sola vez
+#     kubectl apply -k infra/k8s/overlays/cloud/
 
 namespace: cv-platform
 
@@ -19,13 +21,8 @@ resources:
   # Non-secret shared configuration
   - base/configmap.yaml
 
-  # Kubernetes ServiceAccount con anotación Workload Identity (GKE → Cloud SQL Auth Proxy)
+  # Kubernetes ServiceAccount (WI annotation ignorada en local, activa en GKE)
   - base/serviceaccount.yaml
-
-  # Infrastructure — Postgres (local kind)
-  - services/postgres/pvc.yaml
-  - services/postgres/deployment.yaml
-  - services/postgres/service.yaml
 
   # Infrastructure — Kafka + Zookeeper
   - services/kafka/zookeeper-deployment.yaml

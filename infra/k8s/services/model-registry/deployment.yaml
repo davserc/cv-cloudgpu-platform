@@ -15,28 +15,7 @@ spec:
       labels:
         app: model-registry
     spec:
-      serviceAccountName: cv-platform-sa
       containers:
-        - name: cloud-sql-proxy
-          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
-          args:
-            - "--port=5432"
-            - "$(CLOUD_SQL_INSTANCE)"
-          env:
-            - name: CLOUD_SQL_INSTANCE
-              valueFrom:
-                configMapKeyRef:
-                  name: cv-platform-config
-                  key: CLOUD_SQL_INSTANCE
-          securityContext:
-            runAsNonRoot: true
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
-              memory: "128Mi"
         - name: model-registry
           image: ghcr.io/davserc/model-registry:latest
           imagePullPolicy: Always
