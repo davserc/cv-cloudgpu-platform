@@ -37,3 +37,6 @@ data:
   VAST_OFFER_BLACKLIST_TTL_SEC: "86400"
   VAST_BOOT_TIMEOUT_BLACKLIST_TTL_SEC: "86400"
   DEFAULT_DISK_SPACE: "40"
+  # CORS para el api-gateway. Reemplazar con el dominio Firebase una vez desplegado:
+  # https://PROYECTO.web.app,https://PROYECTO.firebaseapp.com
+  CORS_ALLOW_ORIGINS: "*"

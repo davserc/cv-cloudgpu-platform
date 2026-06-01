@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Overlay CLOUD — GKE + Cloud SQL via Auth Proxy (Workload Identity).
+#
+# Antes del primer deploy:
+#   1. Completar el email de la GSA en base/serviceaccount.yaml:
+#        tofu output cloudsql_proxy_sa_email   →  cv-cloudsql-proxy@PROJECT.iam.gserviceaccount.com
+#   2. Completar CLOUD_SQL_INSTANCE y CORS_ALLOW_ORIGINS en configmap-patch.yaml
+#   3. Crear el secret:
+#        cp infra/k8s/overlays/cloud/secret.yaml.tpl infra/k8s/overlays/cloud/secret.yaml
+#        # completar valores reales en secret.yaml
+#        kubectl apply -f infra/k8s/overlays/cloud/secret.yaml
+#
+# Deploy:
+#   kubectl apply -k infra/k8s/overlays/cloud/
+
+resources:
+  # Base compartida (kafka, servicios de app, observabilidad)
+  - ../..
+
+patches:
+  # Configmap: CLOUD_SQL_INSTANCE real + CORS restringido al dominio Firebase
+  - path: configmap-patch.yaml
+
+  # Agrega sidecar cloud-sql-proxy + serviceAccountName a cada deployment con DB
+  - path: patches/api-gateway.yaml
+  - path: patches/training-worker.yaml
+  - path: patches/model-registry.yaml
+  - path: patches/model-registry-worker.yaml
+  - path: patches/evaluation-worker.yaml
+  - path: patches/model-serving.yaml
