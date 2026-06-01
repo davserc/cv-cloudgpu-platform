@@ -241,18 +241,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        run: |
-          echo "${{ secrets.GCP_SA_B64 }}" | base64 -d > /tmp/sa.json
-          gcloud auth activate-service-account --key-file=/tmp/sa.json
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_JSON }}
 
-      - name: Get GKE credentials
-        run: |
-          gcloud container clusters get-credentials cv-platform \
-            --zone us-central1-a \
-            --project "${{ secrets.GCP_PROJECT_ID }}"
-
-      - uses: azure/setup-kubectl@v4
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: cv-platform
+          location: us-central1-a
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Bootstrap namespace and secret
         run: |
