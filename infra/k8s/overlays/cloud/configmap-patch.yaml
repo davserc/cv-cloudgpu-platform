@@ -4,8 +4,6 @@ metadata:
   name: cv-platform-config
   namespace: cv-platform
 data:
-  # Obtener con: tofu output db_instance_connection_name
-  # Formato: PROJECT_ID:REGION:INSTANCE_NAME
-  CLOUD_SQL_INSTANCE: "CHANGE_ME_PROJECT:us-central1:cv-postgres"
+  CLOUD_SQL_INSTANCE: "project-38c56a6f-24a9-45fb-aef:us-central1:cv-postgres"
 
   CORS_ALLOW_ORIGINS: "https://cv-platform-fbd07.web.app,https://cv-platform-fbd07.firebaseapp.com"
