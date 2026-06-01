@@ -29,3 +29,4 @@ patches:
   - path: patches/model-registry.yaml
   - path: patches/model-registry-worker.yaml
   - path: patches/evaluation-worker.yaml
+  - path: patches/model-serving.yaml

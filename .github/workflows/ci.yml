@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, tp4-cicd]
   pull_request:
-    branches: [main]
+    branches: [main, tp4-cicd]
 
 permissions:
   contents: read
@@ -200,7 +200,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api-gateway, model-registry, evaluation-service]
+        service: [api-gateway, model-registry, evaluation-service, model-serving]
 
     steps:
       - name: Checkout cv-cloudgpu-platform

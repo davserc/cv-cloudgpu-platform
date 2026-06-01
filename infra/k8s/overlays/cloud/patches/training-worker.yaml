@@ -8,6 +8,9 @@ spec:
     spec:
       serviceAccountName: cv-platform-sa
       containers:
+        - name: training-worker
+          image: ghcr.io/davserc/training-service:latest
+          imagePullPolicy: Always
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
           args:

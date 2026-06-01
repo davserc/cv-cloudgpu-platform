@@ -50,6 +50,10 @@ resources:
   - services/evaluation-service/worker-deployment.yaml
   - services/evaluation-service/service.yaml
 
+  # Application — model-serving
+  - services/model-serving/deployment.yaml
+  - services/model-serving/service.yaml
+
   # Observability — Prometheus + Grafana
   - observability/prometheus-rbac.yaml
   - observability/prometheus-configmap.yaml
