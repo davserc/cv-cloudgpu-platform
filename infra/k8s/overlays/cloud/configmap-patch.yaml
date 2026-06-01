@@ -8,6 +8,4 @@ data:
   # Formato: PROJECT_ID:REGION:INSTANCE_NAME
   CLOUD_SQL_INSTANCE: "CHANGE_ME_PROJECT:us-central1:cv-postgres"
 
-  # Dominios del frontend en Firebase Hosting
-  # Reemplazar PROYECTO con el ID del proyecto Firebase
-  CORS_ALLOW_ORIGINS: "https://CHANGE_ME_PROYECTO.web.app,https://CHANGE_ME_PROYECTO.firebaseapp.com"
+  CORS_ALLOW_ORIGINS: "https://cv-platform-fbd07.web.app,https://cv-platform-fbd07.firebaseapp.com"
