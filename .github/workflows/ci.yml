@@ -266,7 +266,7 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy cloud overlay
-        run: kubectl apply -k infra/k8s/overlays/cloud/
+        run: kubectl apply -k infra/overlays/cloud/
 
   # training-service needs cloudgpu-automation-lib in build context
   build-training-service:

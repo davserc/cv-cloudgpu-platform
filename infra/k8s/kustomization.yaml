@@ -5,12 +5,12 @@ kind: Kustomization
 # Usar los overlays según entorno:
 #
 #   Local (kind):
-#     kubectl apply -f infra/k8s/overlays/local/secret.yaml   # 1 sola vez
-#     kubectl apply -k infra/k8s/overlays/local/
+#     kubectl apply -f infra/overlays/local/secret.yaml   # 1 sola vez
+#     kubectl apply -k infra/overlays/local/
 #
 #   Cloud (GKE):
-#     kubectl apply -f infra/k8s/overlays/cloud/secret.yaml   # 1 sola vez
-#     kubectl apply -k infra/k8s/overlays/cloud/
+#     kubectl apply -f infra/overlays/cloud/secret.yaml   # 1 sola vez
+#     kubectl apply -k infra/overlays/cloud/
 
 namespace: cv-platform
 
