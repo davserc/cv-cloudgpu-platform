@@ -8,16 +8,16 @@ kind: Kustomization
 #        tofu output cloudsql_proxy_sa_email   →  cv-cloudsql-proxy@PROJECT.iam.gserviceaccount.com
 #   2. Completar CLOUD_SQL_INSTANCE y CORS_ALLOW_ORIGINS en configmap-patch.yaml
 #   3. Crear el secret:
-#        cp infra/k8s/overlays/cloud/secret.yaml.tpl infra/k8s/overlays/cloud/secret.yaml
+#        cp infra/overlays/cloud/secret.yaml.tpl infra/overlays/cloud/secret.yaml
 #        # completar valores reales en secret.yaml
-#        kubectl apply -f infra/k8s/overlays/cloud/secret.yaml
+#        kubectl apply -f infra/overlays/cloud/secret.yaml
 #
 # Deploy:
-#   kubectl apply -k infra/k8s/overlays/cloud/
+#   kubectl apply -k infra/overlays/cloud/
 
 resources:
   # Base compartida (kafka, servicios de app, observabilidad)
-  - ../..
+  - ../../k8s
 
 patches:
   # Configmap: CLOUD_SQL_INSTANCE real + CORS restringido al dominio Firebase
