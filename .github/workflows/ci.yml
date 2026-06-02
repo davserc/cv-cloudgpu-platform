@@ -238,13 +238,18 @@ jobs:
     needs: [build, build-training-service]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
+    permissions:
+      contents: read
+      id-token: write   # requerido para Workload Identity Federation
+
     steps:
       - uses: actions/checkout@v4
 
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_JSON }}
+          workload_identity_provider: "projects/647757978174/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "cv-cicd@project-38c56a6f-24a9-45fb-aef.iam.gserviceaccount.com"
 
       - uses: google-github-actions/get-gke-credentials@v2
         with:
