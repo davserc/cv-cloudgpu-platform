@@ -260,9 +260,11 @@ jobs:
       - name: Bootstrap namespace and secret
         run: |
           kubectl create namespace cv-platform --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic cv-platform-secret \
+          kubectl create secret generic cv-platform-secrets \
             --namespace cv-platform \
             --from-literal=DATABASE_URL="postgresql+psycopg2://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@127.0.0.1:5432/${{ secrets.DB_NAME }}" \
+            --from-literal=API_GATEWAY_API_KEY="${{ secrets.API_GATEWAY_API_KEY }}" \
+            --from-literal=GRAFANA_ADMIN_PASSWORD="${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy cloud overlay
