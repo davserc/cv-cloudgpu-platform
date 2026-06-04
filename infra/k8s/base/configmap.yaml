@@ -23,7 +23,7 @@ data:
   VAST_AUTO_REGISTER_SSH_KEY: "1"
   VAST_KEEP_INSTANCE_ON_FAILURE: "1"
   VAST_BLOCKED_COUNTRIES: "CN,RU,IR,HR"
-  VAST_SSH_PUBLIC_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDstixq74hYBC85ovHQ6NlhgQHXV/klo1CbwNxfaSs/4 davse@davse"
+  VAST_SSH_PUBLIC_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDexjXNyd/CQ9+xyTPMPiiNwCHmrqcJknY/gBVxTM3pc davse@davse"
   VAST_SSH_USER: "root"
   TRAIN_IMAGE: "davse/taco-yolo-service:latest"
   TRAIN_MODEL_GCS_BASE_URI: "gs://unlu-genai-serranodavid-computer_vision_yolo/artifacts"

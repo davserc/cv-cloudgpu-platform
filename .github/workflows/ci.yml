@@ -265,6 +265,12 @@ jobs:
             --from-literal=DATABASE_URL="postgresql+psycopg2://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@127.0.0.1:5432/${{ secrets.DB_NAME }}" \
             --from-literal=API_GATEWAY_API_KEY="${{ secrets.API_GATEWAY_API_KEY }}" \
             --from-literal=GRAFANA_ADMIN_PASSWORD="${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+            --from-literal=VAST_SSH_PRIVATE_KEY="${{ secrets.VAST_SSH_PRIVATE_KEY }}" \
+            --from-literal=VAST_SSH_PUBLIC_KEY="${{ secrets.VAST_SSH_PUBLIC_KEY }}" \
+            --from-literal=VASTAI_API_KEY="${{ secrets.VASTAI_API_KEY }}" \
+            --from-literal=DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}" \
+            --from-literal=DOCKERHUB_PASSWORD="${{ secrets.DOCKERHUB_PASSWORD }}" \
+            --from-literal=GCP_SA_B64="${{ secrets.GCP_SA_B64 }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy cloud overlay
