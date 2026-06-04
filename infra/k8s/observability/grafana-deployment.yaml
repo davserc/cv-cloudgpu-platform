@@ -37,6 +37,12 @@ spec:
               mountPath: /etc/grafana/provisioning/datasources
             - name: dashboards-provider
               mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboard-training
+              mountPath: /var/lib/grafana/dashboards/training-worker.json
+              subPath: training-worker.json
+            - name: dashboard-pods
+              mountPath: /var/lib/grafana/dashboards/pod-metrics.json
+              subPath: pod-metrics.json
           readinessProbe:
             httpGet:
               path: /api/health
@@ -57,6 +63,12 @@ spec:
         - name: dashboards-provider
           configMap:
             name: grafana-dashboards-provider
+        - name: dashboard-training
+          configMap:
+            name: grafana-dashboard-training
+        - name: dashboard-pods
+          configMap:
+            name: grafana-dashboard-pods
 ---
 apiVersion: v1
 kind: Service

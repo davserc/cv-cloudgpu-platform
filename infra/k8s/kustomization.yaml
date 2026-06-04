@@ -61,4 +61,5 @@ resources:
   - observability/loki-deployment.yaml
   - observability/promtail-daemonset.yaml
   - observability/grafana-configmap.yaml
+  - observability/grafana-dashboards.yaml
   - observability/grafana-deployment.yaml
