@@ -13,6 +13,11 @@ data:
         isDefault: true
         access: proxy
         uid: prometheus
+      - name: Loki
+        type: loki
+        url: http://loki:3100
+        access: proxy
+        uid: loki
 ---
 apiVersion: v1
 kind: ConfigMap

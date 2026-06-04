@@ -54,9 +54,11 @@ resources:
   - services/model-serving/deployment.yaml
   - services/model-serving/service.yaml
 
-  # Observability — Prometheus + Grafana
+  # Observability — Prometheus + Loki + Promtail + Grafana
   - observability/prometheus-rbac.yaml
   - observability/prometheus-configmap.yaml
   - observability/prometheus-deployment.yaml
+  - observability/loki-deployment.yaml
+  - observability/promtail-daemonset.yaml
   - observability/grafana-configmap.yaml
   - observability/grafana-deployment.yaml
