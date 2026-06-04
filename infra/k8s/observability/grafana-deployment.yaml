@@ -64,7 +64,7 @@ metadata:
   name: grafana
   namespace: cv-platform
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: grafana
   ports:
