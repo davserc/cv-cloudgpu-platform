@@ -63,7 +63,7 @@ data:
               - __meta_kubernetes_pod_container_name
             target_label: __path__
         pipeline_stages:
-          - docker: {}
+          - cri: {}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
