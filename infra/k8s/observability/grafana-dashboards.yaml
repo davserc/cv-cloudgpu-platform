@@ -26,7 +26,7 @@ data:
             "wrapLogMessage": true
           },
           "targets": [{
-            "expr": "{app=\"training-worker\", namespace=\"cv-platform\"}",
+            "expr": "{container=\"training-worker\", namespace=\"cv-platform\"}",
             "refId": "A"
           }]
         },
@@ -43,7 +43,7 @@ data:
             "prettifyLogMessage": true
           },
           "targets": [{
-            "expr": "{app=\"api-gateway\", namespace=\"cv-platform\"}",
+            "expr": "{container=\"api-gateway\", namespace=\"cv-platform\"}",
             "refId": "A"
           }]
         },
