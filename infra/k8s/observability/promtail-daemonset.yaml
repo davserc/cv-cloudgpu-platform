@@ -56,7 +56,9 @@ data:
             target_label: container
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: node
-          - replacement: /var/log/pods/*$1/*.log
+          - action: replace
+            regex: (.+)
+            replacement: /var/log/pods/*$1/*.log
             separator: /
             source_labels:
               - __meta_kubernetes_pod_uid
@@ -91,6 +93,9 @@ spec:
           image: grafana/promtail:3.0.0
           args:
             - -config.file=/etc/promtail/promtail.yaml
+          securityContext:
+            runAsUser: 0
+            readOnlyRootFilesystem: false
           volumeMounts:
             - name: config
               mountPath: /etc/promtail
