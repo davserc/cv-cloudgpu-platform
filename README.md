@@ -30,9 +30,15 @@ infra/k8s/          Manifiestos Kubernetes
 
 ## Requisitos
 
+### Local
 - Docker Desktop con kind
 - `kubectl`, `kind`
 - Python 3.11+
+
+### Producción (GKE vía OpenTofu)
+- GCP project con APIs habilitadas (GKE, Cloud SQL, Secret Manager, GCS)
+- `gcloud` CLI autenticado
+- OpenTofu >= 1.6 — ver [`gcs-computer-vision-infra`](../gcs-computer-vision-infra)
 
 ## Deploy local (kind)
 
@@ -84,6 +90,50 @@ kubectl rollout restart deployment/<nombre> -n cv-platform
 
 > `kubectl rollout restart deploy -n cv-platform` reinicia **todos** los deployments.
 > No descarga imágenes nuevas — solo usa las ya cargadas con `kind load`.
+
+## Deploy en producción (GKE)
+
+El deploy en producción es gestionado por el módulo OpenTofu en [`gcs-computer-vision-infra`](../gcs-computer-vision-infra).
+
+Ese módulo:
+1. Crea la infraestructura GCP (GKE, Cloud SQL, GCS, Secret Manager)
+2. Sube el bundle de la app al bucket
+3. La VM aplica los manifiestos Kubernetes al iniciar
+
+Para hacer un re-deploy después de cambios en el código:
+
+```bash
+# Desde la raíz del monorepo — regenerar el bundle
+tar -czf app_bundle.tar.gz cv-cloudgpu-platform/
+
+# Subir el bundle al bucket GCS
+gsutil cp app_bundle.tar.gz gs://<bucket>/app_bundle.tar.gz
+
+# Volver a aplicar OpenTofu para que la VM lo tome
+cd ../gcs-computer-vision-infra/opentofu/dev
+tofu apply
+```
+
+## Observabilidad
+
+El stack de observabilidad (Grafana + Loki + Prometheus) corre **dentro del cluster Kubernetes**, no en una VM separada.
+
+```bash
+# Ver pods de monitoreo
+kubectl get pods -n monitoring
+
+# Port-forward a Grafana
+kubectl port-forward svc/grafana 3000:3000 -n monitoring
+
+# Acceder en http://localhost:3000
+```
+
+LogQL para filtrar por servicio en Grafana:
+```
+{container="api-gateway"}
+{container="training-worker"}
+{container="model-serving"}
+```
 
 ## Variables de entorno / Secrets
 
