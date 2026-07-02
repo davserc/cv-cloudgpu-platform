@@ -26,8 +26,8 @@ spec:
             runAsNonRoot: true
           resources:
             requests:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "30m"
+              memory: "48Mi"
             limits:
               cpu: "200m"
               memory: "128Mi"

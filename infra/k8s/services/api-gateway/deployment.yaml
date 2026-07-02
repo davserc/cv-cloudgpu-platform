@@ -19,6 +19,17 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
+      # artifacts-pvc es RWO: solo puede estar attached a un nodo a la vez, y
+      # model-serving también lo monta. Sin esta afinidad el scheduler puede
+      # mandar el pod a un nodo distinto y el volumen nunca attachea
+      # (Multi-Attach error), dejando el rollout colgado indefinidamente.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: model-serving
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: api-gateway
           image: api-gateway:local
@@ -53,7 +64,7 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              cpu: "100m"
+              cpu: "60m"
               memory: "128Mi"
             limits:
               cpu: "500m"
@@ -71,8 +82,8 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: "25m"
-              memory: "32Mi"
+              cpu: "10m"
+              memory: "16Mi"
             limits:
               cpu: "100m"
               memory: "64Mi"
