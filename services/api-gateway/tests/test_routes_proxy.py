@@ -93,7 +93,9 @@ def test_infer_upload_sends_gcs_uri_to_serving(client):
             "app.api.v1.routes_infer.upload_bytes_to_gcs",
             return_value="gs://some-bucket/uploads/abc_cat.jpg",
         ) as mock_upload,
-        patch("app.api.v1.routes_infer.request.urlopen", return_value=_mock_urlopen(body)) as mock_urlopen,
+        patch(
+            "app.api.v1.routes_infer.request.urlopen", return_value=_mock_urlopen(body)
+        ) as mock_urlopen,
     ):
         resp = tc.post(
             "/api/v1/infer/upload",
