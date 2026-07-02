@@ -56,6 +56,24 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+        - name: tls-proxy
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: tls-nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: tls-certs
+              mountPath: /etc/tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
       volumes:
         - name: datasources
           configMap:
@@ -69,6 +87,12 @@ spec:
         - name: dashboard-pods
           configMap:
             name: grafana-dashboard-pods
+        - name: tls-nginx-conf
+          configMap:
+            name: grafana-tls-nginx-conf
+        - name: tls-certs
+          secret:
+            secretName: grafana-tls
 ---
 apiVersion: v1
 kind: Service
@@ -80,5 +104,6 @@ spec:
   selector:
     app: grafana
   ports:
-    - port: 3000
-      targetPort: 3000
+    - name: https
+      port: 443
+      targetPort: 8443

@@ -17,7 +17,7 @@ data:
   MODEL_REGISTRY_AUTO_ACTIVATE: "true"
   MODEL_SERVING_AUTO_RELOAD: "true"
   MODEL_SERVING_AUTO_WARM: "true"
-  INFER_UPLOAD_DIR: "/data/uploads"
+  INFER_UPLOAD_GCS_BASE_URI: "gs://unlu-genai-serranodavid-computer_vision_yolo/uploads"
   VAST_SSH_KEY_SRC: "/root/.ssh/id_ed25519_src"
   VAST_AUTO_SSH_KEY: "0"
   VAST_AUTO_REGISTER_SSH_KEY: "1"

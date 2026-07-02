@@ -9,7 +9,7 @@ COPY services/api-gateway /app/services/api-gateway
 RUN pip install --no-cache-dir -U pip \
     && pip install --no-cache-dir -e /app/libs/common \
     && pip install --no-cache-dir -e /app/libs/contracts \
-    && pip install --no-cache-dir fastapi "uvicorn[standard]" kafka-python httpx python-multipart prometheus-fastapi-instrumentator
+    && pip install --no-cache-dir fastapi "uvicorn[standard]" kafka-python httpx python-multipart prometheus-fastapi-instrumentator google-cloud-storage
 
 ENV PYTHONPATH=/app
 WORKDIR /app/services/api-gateway

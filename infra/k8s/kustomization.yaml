@@ -30,7 +30,8 @@ resources:
   - services/kafka/kafka-deployment.yaml
   - services/kafka/kafka-service.yaml
 
-  # Application — api-gateway (external entry point, LoadBalancer)
+  # Application — api-gateway (external entry point, LoadBalancer, TLS via sidecar)
+  - services/api-gateway/tls-nginx-configmap.yaml
   - services/api-gateway/deployment.yaml
   - services/api-gateway/service.yaml
 
@@ -62,4 +63,5 @@ resources:
   - observability/promtail-daemonset.yaml
   - observability/grafana-configmap.yaml
   - observability/grafana-dashboards.yaml
+  - observability/grafana-tls-nginx-configmap.yaml
   - observability/grafana-deployment.yaml

@@ -26,6 +26,13 @@ Punto de entrada único de la plataforma. Valida la API key, enruta requests a l
 | `POST` | `/api/v1/infer/upload` | Inferencia por archivo → JSON |
 | `POST` | `/api/v1/infer/upload/annotated` | Inferencia por archivo → PNG anotado |
 
+Los endpoints de upload suben el archivo recibido a GCS (bucket/prefijo definido en
+`INFER_UPLOAD_GCS_BASE_URI`, default `gs://unlu-genai-serranodavid-computer_vision_yolo/uploads`)
+y reenvían al `model-serving` la URI `gs://...` resultante en `inputs`, en vez de escribir a disco
+local — `api-gateway` y `model-serving` corren en pods distintos sin volumen compartido para
+uploads, así que pasar una ruta local no funcionaría. Requiere `GCP_SA_B64` (mismo Secret que usa
+`model-serving` para descargar).
+
 ## Autenticación
 
 Header requerido en todos los endpoints: `X-API-KEY: <valor>`.

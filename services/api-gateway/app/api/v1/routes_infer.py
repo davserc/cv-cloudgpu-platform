@@ -2,10 +2,10 @@ import json
 import os
 from pathlib import Path
 from urllib import parse, request
-from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 
+from app.gcs_utils import upload_bytes_to_gcs
 from app.schemas import InferRequest, InferResponse
 
 router = APIRouter()
@@ -81,17 +81,15 @@ def infer_upload(
     file: UploadFile = File(...),
     model_id: str | None = None,
 ) -> InferResponse:
-    uploads_dir = Path(os.getenv("INFER_UPLOAD_DIR", "/data/uploads"))
-    uploads_dir.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename or "input").name
-    dst_path = uploads_dir / f"{uuid4()}_{safe_name}"
-
-    with dst_path.open("wb") as handle:
-        handle.write(file.file.read())
+    try:
+        gcs_uri = upload_bytes_to_gcs(file.file.read(), safe_name, content_type=file.content_type)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"GCS upload failed: {exc}") from exc
 
     payload = InferRequest(
         model_id=model_id,
-        inputs=[str(dst_path)],
+        inputs=[gcs_uri],
     )
     return _infer(payload)
 
@@ -105,16 +103,14 @@ def infer_upload_annotated(
     file: UploadFile = File(...),
     model_id: str | None = None,
 ):
-    uploads_dir = Path(os.getenv("INFER_UPLOAD_DIR", "/data/uploads"))
-    uploads_dir.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename or "input").name
-    dst_path = uploads_dir / f"{uuid4()}_{safe_name}"
-
-    with dst_path.open("wb") as handle:
-        handle.write(file.file.read())
+    try:
+        gcs_uri = upload_bytes_to_gcs(file.file.read(), safe_name, content_type=file.content_type)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"GCS upload failed: {exc}") from exc
 
     payload = InferRequest(
         model_id=model_id,
-        inputs=[str(dst_path)],
+        inputs=[gcs_uri],
     )
     return _infer_annotated(payload)

@@ -193,6 +193,58 @@ POST /api/v1/infer/upload          (multipart, devuelve JSON)
 POST /api/v1/infer/upload/annotated (multipart, devuelve PNG)
 ```
 
+`api-gateway` sube el archivo recibido a GCS (`INFER_UPLOAD_GCS_BASE_URI`) y le pasa a
+`model-serving` la URI `gs://...` resultante — `api-gateway` y `model-serving` corren en pods
+distintos sin volumen compartido, así que una ruta local del gateway no sería accesible para el
+serving. `model-serving` reutiliza su lógica existente de descarga (`_download_gcs` en
+`app/model_store.py`), la misma que ya usaba para descargar artifacts de modelo.
+
+## Seguridad
+
+**Auditoría de clave SSH de Vast.ai (2026-07-02):** se revisó el historial completo (`git log
+--all`, todas las ramas) de los 5 repositorios del proyecto buscando material de clave privada
+(`BEGIN OPENSSH/RSA PRIVATE KEY`, contenido de `VAST_SSH_PRIVATE_KEY`, archivos bajo `secrets/`).
+No se encontró la clave privada comprometida en ningún commit — solo aparece la clave *pública*
+(segura de versionar) y referencias `${{ secrets.VAST_SSH_PRIVATE_KEY }}` de GitHub Actions, que
+nunca exponen el valor real en el repo. `secrets/vast_ed25519` (privada) nunca estuvo trackeada.
+No se requirió purga de historial ni rotación de emergencia.
+
+**TLS en `api-gateway` y `grafana`:** ambos eran Services `type: LoadBalancer` expuestos por
+HTTP plano en IPs públicas de GKE — la API key (`X-API-KEY`) y el login de Grafana viajaban en
+texto plano y, además, se podía acceder a ellos directo por IP sin pasar por `api-proxy`. Se
+agregó un sidecar `nginx:1.27-alpine` (`tls-proxy`) a cada Deployment que termina TLS en el
+puerto 8443 y reenvía a la app por `127.0.0.1` (el `Service` ahora expone `443 → 8443`). El
+certificado es autofirmado — no hay dominio propio (solo `*.web.app`/`*.run.app`/IP cruda) para
+pedir uno de una CA confiable (Let's Encrypt / Google-managed cert requieren validación de
+dominio). Esto cifra el tránsito pero no autentica la identidad del servidor.
+
+Generar y aplicar los certificados (requiere `kubectl` apuntando al cluster real, no incluido
+en este repo):
+```bash
+./infra/tls/create-tls-secrets.sh
+kubectl rollout restart deployment/api-gateway deployment/grafana -n cv-platform
+```
+Si cambia la IP del LoadBalancer, volver a correrlo (`API_GATEWAY_LB_IP=<ip> GRAFANA_LB_IP=<ip> ./infra/tls/create-tls-secrets.sh`).
+`api-proxy/nginx.conf` ya habla HTTPS con `api-gateway` (`proxy_ssl_verify off`, ver
+`api-proxy/README.md`).
+
+**Deuda técnica pendiente:** reemplazar el cert autofirmado por uno de una CA confiable en
+cuanto haya un dominio propio apuntando al LoadBalancer (Google-managed cert + GKE Ingress, o
+cert-manager + Let's Encrypt). Hasta entonces, cualquier cliente que hable HTTPS directo contra
+`api-gateway`/`grafana` (no vía `api-proxy`) va a ver un warning de certificado no confiable.
+
+## CI/CD
+
+`.github/workflows/ci.yml` ya corre en cada `push`/`pull_request` a `main` y `tp4-cicd`
+(`on.push.branches`), sin pasos manuales: lint (ruff), `pytest` por servicio (`test-api-gateway`,
+`test-training-service`, `test-model-registry`, `test-integration` para Kafka), `mypy` y build +
+push de imágenes a `ghcr.io` cuando el push es a `main`. El job `test-api-gateway` corre todo
+`services/api-gateway/tests/` — incluye los tests nuevos del fix de inferencia (`gs://` upload) en
+cuanto se commitean, sin tocar el workflow. Confirmado con `gh run list --workflow=ci.yml`: última
+corrida en `main` exitosa (`success`, 2026-06-06). `cloudgpu-automation-lib` tiene su propio
+`ci.yml` con el mismo patrón (lint + pytest + mypy en cada push/PR a `main`), también verificado
+activo. No hizo falta agregar ni modificar ningún workflow para esta entrega.
+
 ## Comandos útiles
 
 ```bash

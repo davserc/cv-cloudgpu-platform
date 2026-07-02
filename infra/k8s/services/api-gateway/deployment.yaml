@@ -58,7 +58,31 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+        - name: tls-proxy
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: tls-nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: tls-certs
+              mountPath: /etc/tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
       volumes:
         - name: artifacts
           persistentVolumeClaim:
             claimName: artifacts-pvc
+        - name: tls-nginx-conf
+          configMap:
+            name: api-gateway-tls-nginx-conf
+        - name: tls-certs
+          secret:
+            secretName: api-gateway-tls

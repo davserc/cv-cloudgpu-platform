@@ -7,16 +7,19 @@ Servicio de inferencia con modelos YOLO. Descarga el modelo del registro, lo car
 | Método | Path | Descripción |
 |---|---|---|
 | `GET` | `/api/v1/infer/model` | Modelo activo (o por `?model_id=`) |
-| `POST` | `/api/v1/infer/` | Inferencia por URI (GCS, HTTP, ruta local) |
-| `POST` | `/api/v1/infer/upload` | Inferencia por upload multipart → JSON |
-| `POST` | `/api/v1/infer/upload/annotated` | Inferencia por upload multipart → PNG anotado |
+| `POST` | `/api/v1/infer/` | Inferencia por URI (`gs://`, `http(s)://` o ruta local) → JSON |
+| `POST` | `/api/v1/infer/annotated` | Inferencia por URI → PNG anotado |
+
+Los uploads multipart del usuario (`/api/v1/infer/upload` y `/upload/annotated`) los expone el
+**api-gateway**, no este servicio: el gateway sube el archivo a GCS y le pasa a este servicio la
+URI `gs://...` resultante, que se descarga vía `_download_gcs` en `app/model_store.py`.
 
 ## Variables de entorno
 
 | Variable | Default | Descripción |
 |---|---|---|
 | `MODEL_CACHE_DIR` | `/data/models` | Caché local de pesos descargados |
-| `INFER_UPLOAD_DIR` | `/data/artifacts/uploads` | Directorio de uploads temporales |
+| `GCP_SA_B64` | — | Service account (base64) para descargar de GCS (`gs://` en `inputs` o artefactos de modelo) |
 | `MODEL_REGISTRY_URL` | `http://model-registry:8000/api/v1/models` | URL del registro |
 
 ## Imagen Docker
