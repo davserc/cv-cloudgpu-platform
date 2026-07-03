@@ -199,6 +199,24 @@ distintos sin volumen compartido, así que una ruta local del gateway no sería 
 serving. `model-serving` reutiliza su lógica existente de descarga (`_download_gcs` en
 `app/model_store.py`), la misma que ya usaba para descargar artifacts de modelo.
 
+**Otros bugs encontrados y corregidos probando el flujo end-to-end en el cluster real
+(2026-07-03):**
+- `model_store.py._get_gcs_client()` no soportaba credenciales `authorized_user` (el formato
+  real de `GCP_SA_B64` acá), solo service accounts — estaba enmascarado porque el pod de
+  `model-serving` llevaba días arriba con el modelo ya cacheado. Corregido con el mismo manejo
+  que ya tenía `training-service/app/gcs_utils.py`.
+- `limits.memory` de `model-serving` (2Gi) no alcanzaba para cargar el modelo YOLO desde cero
+  (descarga + carga en Ultralytics/PyTorch) → `OOMKilled`. Subido a 4Gi (request 1Gi).
+- `client_max_body_size` (default 1m de nginx) rechazaba fotos de varias MB tanto en `api-proxy`
+  como en el sidecar TLS de `api-gateway` → 413. Seteado a 25m en ambos.
+- `artifacts-pvc` (RWO) lo montaban a la vez `api-gateway`, `model-serving` y `training-worker`;
+  ninguno de los dos primeros lo usa en su código (`api-gateway` solo lo tenía para
+  `TRAIN_LOG_DIR`, ver comentario en `routes_train.py` — deshabilita el endpoint de logs de
+  training hasta que se rediseñe para no depender del volumen compartido). Se les sacó el mount
+  por completo; el conflicto de scheduling (Multi-Attach) que causaba desapareció.
+- CORS en `api-proxy` solo permitía `*.web.app`; Firebase Hosting también sirve en
+  `*.firebaseapp.com`. Ahora refleja el `Origin` si matchea cualquiera de los dos.
+
 ## Seguridad
 
 **Auditoría de clave SSH de Vast.ai (2026-07-02):** se revisó el historial completo (`git log
