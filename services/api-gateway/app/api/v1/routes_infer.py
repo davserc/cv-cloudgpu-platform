@@ -27,7 +27,7 @@ def _infer(payload: InferRequest) -> InferResponse:
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=120) as resp:
+        with request.urlopen(req, timeout=170) as resp:
             body = resp.read().decode("utf-8")
             return InferResponse.model_validate_json(body)
     except Exception as exc:
@@ -45,7 +45,7 @@ def _infer_annotated(payload: InferRequest):
         method="POST",
     )
     try:
-        with request.urlopen(req, timeout=120) as resp:
+        with request.urlopen(req, timeout=170) as resp:
             body = resp.read()
             return Response(content=body, media_type="image/png")
     except Exception as exc:
