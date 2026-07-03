@@ -19,17 +19,6 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
-      # artifacts-pvc es RWO: solo puede estar attached a un nodo a la vez, y
-      # model-serving también lo monta. Sin esta afinidad el scheduler puede
-      # mandar el pod a un nodo distinto y el volumen nunca attachea
-      # (Multi-Attach error), dejando el rollout colgado indefinidamente.
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app: model-serving
-              topologyKey: kubernetes.io/hostname
       containers:
         - name: api-gateway
           image: api-gateway:local
@@ -44,11 +33,6 @@ spec:
           env:
             - name: KAFKA_TOPIC
               value: "training-jobs"
-            - name: TRAIN_LOG_DIR
-              value: "/data/artifacts"
-          volumeMounts:
-            - name: artifacts
-              mountPath: /data/artifacts
           livenessProbe:
             httpGet:
               path: /health
@@ -88,9 +72,6 @@ spec:
               cpu: "100m"
               memory: "64Mi"
       volumes:
-        - name: artifacts
-          persistentVolumeClaim:
-            claimName: artifacts-pvc
         - name: tls-nginx-conf
           configMap:
             name: api-gateway-tls-nginx-conf

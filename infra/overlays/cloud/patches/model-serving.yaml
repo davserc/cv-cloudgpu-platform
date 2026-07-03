@@ -6,7 +6,28 @@ metadata:
 spec:
   template:
     spec:
+      serviceAccountName: cv-platform-sa
       containers:
         - name: model-serving
           image: ghcr.io/davserc/model-serving:latest
           imagePullPolicy: Always
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2
+          args:
+            - "--port=5432"
+            - "$(CLOUD_SQL_INSTANCE)"
+          env:
+            - name: CLOUD_SQL_INSTANCE
+              valueFrom:
+                configMapKeyRef:
+                  name: cv-platform-config
+                  key: CLOUD_SQL_INSTANCE
+          securityContext:
+            runAsNonRoot: true
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

@@ -127,6 +127,10 @@ def get_running_training_jobs() -> RunningJobsResponse:
     "The log is updated periodically while training is running.",
 )
 def get_training_logs(job_id: str) -> TrainLogResponse:
+    # api-gateway ya no monta artifacts-pvc (compartirlo con model-serving/training-worker
+    # causaba Multi-Attach errors en rollouts — ver README > Seguridad/CI-CD), así que en el
+    # deploy cloud esto siempre devuelve available=False. Pendiente: servir logs vía
+    # training-service en vez de leer el volumen directo.
     log_dir = Path(os.getenv("TRAIN_LOG_DIR", "/data/artifacts"))
     log_path = log_dir / f"train_{job_id}.log"
 

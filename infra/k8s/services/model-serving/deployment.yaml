@@ -27,8 +27,6 @@ spec:
             - secretRef:
                 name: cv-platform-secrets
           volumeMounts:
-            - name: artifacts
-              mountPath: /data/artifacts
             - name: model-cache
               mountPath: /data/models
           livenessProbe:
@@ -51,8 +49,5 @@ spec:
               memory: "2Gi"
               cpu: "1000m"
       volumes:
-        - name: artifacts
-          persistentVolumeClaim:
-            claimName: artifacts-pvc
         - name: model-cache
           emptyDir: {}

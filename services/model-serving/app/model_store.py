@@ -47,6 +47,26 @@ def _get_gcs_client():
 
     info = _decode_service_account(gcp_sa_b64)
 
+    # authorized_user credentials (gcloud auth login) requieren un flujo diferente
+    # al de una service account — mismo patrón que training-service/app/gcs_utils.py.
+    if info.get("type") == "authorized_user":
+        from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+
+        creds = Credentials(
+            token=None,
+            refresh_token=info["refresh_token"],
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=info["client_id"],
+            client_secret=info["client_secret"],
+        )
+        creds.refresh(Request())
+        # storage.Client sin project explícito llama a google.auth.default() para
+        # detectarlo, lo cual falla sin ADC configurado en el pod. Cualquier project
+        # no-None evita esa detección; no hace falta uno válido para buckets existentes.
+        project = os.getenv("GCLOUD_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT", "na")
+        return storage.Client(credentials=creds, project=project)
+
     return storage.Client.from_service_account_info(info)
 
 

@@ -12,6 +12,9 @@ data:
         ssl_certificate     /etc/tls/tls.crt;
         ssl_certificate_key /etc/tls/tls.key;
         ssl_protocols TLSv1.2 TLSv1.3;
+        # Default de nginx es 1m — el endpoint /infer/upload recibe fotos de
+        # varios MB.
+        client_max_body_size 25m;
 
         location / {
           proxy_pass http://127.0.0.1:8000;
