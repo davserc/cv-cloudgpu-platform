@@ -216,6 +216,12 @@ serving. `model-serving` reutiliza su lógica existente de descarga (`_download_
   por completo; el conflicto de scheduling (Multi-Attach) que causaba desapareció.
 - CORS en `api-proxy` solo permitía `*.web.app`; Firebase Hosting también sirve en
   `*.firebaseapp.com`. Ahora refleja el `Origin` si matchea cualquiera de los dos.
+- Timeouts default de nginx (60s) en `api-proxy` insuficientes para un cold start de
+  `model-serving` → 504. Subidos a 180s (`api-proxy/nginx.conf`) y el timeout de
+  `api-gateway` hacia `model-serving` a 170s (`routes_infer.py`). Además, `api-proxy` en
+  Cloud Run escalaba a cero instancias — el primer request tras inactividad podía superponer
+  un cold start de Cloud Run con uno de `model-serving` y timeoutear igual; se fijó
+  `min-instances=1` en el servicio Cloud Run (ver `api-proxy/README.md`).
 
 ## Seguridad
 
